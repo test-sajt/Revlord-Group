@@ -3,6 +3,7 @@ import * as db from './db';
 import type { Message, Thread } from './types';
 import { explain, field, Field, Form, Link, ReportForm, Task, threadOther, useData, useSite, Wait, when } from './ui';
 import { pathOf } from './Catalog';
+import { CategoryAdmin } from './CategoryAdmin';
 export function Chat({
   id,
   close
@@ -40,6 +41,12 @@ export function Chat({
     body: string;
   } | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {if(e.key==='Escape') close();};
+    window.addEventListener('keydown',onKey);
+    return () => window.removeEventListener('keydown',onKey);
+  },[close]);
+  const lastRead = useRef('');
   // Realtime javlja promenu, a periodično čitanje nadoknađuje prekid WebSocket veze.
   useEffect(() => {
     let active = true,
@@ -52,6 +59,11 @@ export function Chat({
         }, '*', 'created_at');
         if (active && n === sequence) {
           setMessages(data);
+          const received = data.filter(m => m.sender !== user!.id).at(-1)?.id || '';
+          if (received && received !== lastRead.current) {
+            lastRead.current = received;
+            void db.markRead(id).then(() => window.dispatchEvent(new Event('rg-inbox-refresh'))).catch(e => setError(explain(e, t)));
+          }
           setError('');
           setReady(true);
         }
@@ -73,7 +85,7 @@ export function Chat({
       block: 'nearest'
     });
   }, [messages.length]);
-  return <aside className="chat" aria-label={t('Razgovor', 'Conversation')}>
+  return <aside className="chat" role="dialog" aria-label={t('Razgovor', 'Conversation')}>
     <div className="section-title">
       <b>{q.data?.p?.name || t('Razgovor', 'Conversation')}</b>
       <button aria-label={t('Zatvori', 'Close')} onClick={close}>×</button>
@@ -117,6 +129,7 @@ export function Chat({
       setMessages(all => all.some(x => x.id === mid) ? all : [...all, m]);
       setText('');
       setSent(true);
+      window.dispatchEvent(new Event('rg-inbox-refresh'));
       retry.current = null;
     }}><label>
         {t('Poruka', 'Message')}
@@ -194,5 +207,6 @@ export function Admin() {
         <p>{m.body}</p>
       </div>)}
     </section>}
+    <CategoryAdmin />
   </section>;
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from './icons';
+import { Inbox } from './Inbox';
 import { Avatar, Link, useSite } from './ui';
 // Navigacija koristi iste putanje na oba jezika kako bi deljeni link radio za svakog posetioca.
 function Brand() {
@@ -40,6 +41,7 @@ export function LogoHeader() {
             <button aria-label={l === 'sr' ? 'Srpski' : 'English'} aria-pressed={lang === l} className={lang === l ? 'selected' : ''} onClick={() => setLang(l)}>{l.toUpperCase()}</button>
           </React.Fragment>)}
         </div>
+        <Inbox />
         <span className="login-link">{account}</span>
         <Link className="primary post" to="/new/project">
           <Icon name="plus" size={15} />
@@ -52,6 +54,7 @@ export function LogoHeader() {
     {menu && <nav className="mobile-nav">
       {links}
       {account}
+      <span className="mobile-language"><button onClick={() => setLang('sr')} aria-pressed={lang==='sr'}>SR</button> / <button onClick={() => setLang('en')} aria-pressed={lang==='en'}>EN</button></span>
       <Link to="/new/project">{t('Objavi projekat', 'Post a project')}</Link>
     </nav>}
   </header>;

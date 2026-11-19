@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import type { Lang, Profile, Tables, Thread, User } from './types';
+import type { CategoryNode, Lang, Profile, Tables, Thread, User } from './types';
 import * as db from './db';
 import { categories } from './data';
 export type T = (sr: string, en: string) => string;
@@ -209,10 +209,10 @@ export function catName(id: string, t: T) {
   const c = categories.find(x => x[0] === id);
   return c ? t(c[2], c[3]) : id;
 }
-export function cost(n: number | null, t: T) {
+export function cost(n: number | null, t: T, currency = 'EUR') {
   return n == null ? t('Po dogovoru', 'Negotiable') : new Intl.NumberFormat(t('sr-Latn', 'en-IE'), {
     style: 'currency',
-    currency: 'EUR',
+    currency: ['EUR', 'USD', 'RSD', 'GBP'].includes(currency) ? currency : 'EUR',
     maximumFractionDigits: 2
   }).format(n);
 }
@@ -241,16 +241,18 @@ export function Avatar({
 }
 export function SignedImage({
   path,
-  alt
+  alt,
+  bucket = 'portfolio'
 }: {
   path: string;
   alt: string;
+  bucket?: string;
 }) {
   const [src, set] = useState('');
   useEffect(() => {
     let active = true;
     function load() {
-      db.imageUrl(path).then(x => active && set(x)).catch(() => active && set(''));
+      db.mediaUrl(bucket, path).then(x => active && set(x)).catch(() => active && set(''));
     }
     load();
     const timer = setInterval(load, 3300000);
@@ -258,7 +260,7 @@ export function SignedImage({
       active = false;
       clearInterval(timer);
     };
-  }, [path]);
+  }, [path, bucket]);
   return src ? <img src={src} alt={alt} loading="lazy" /> : <span className="art-placeholder" aria-label={alt} />;
 }
 export function needLogin(ctx: Context) {
@@ -314,4 +316,57 @@ export function mine<K extends keyof Tables>(table: K, id?: string) {
   return id ? db.rows(table, {
     id
   }) : Promise.resolve([]);
+}
+
+// Category hierarchy is stored in Supabase: administrators can change it without a frontend rebuild.
+export function useCategories() {
+  return useData(() => db.rows('categories', {}, '*', 'sort_order'), 'category-tree');
+}
+export function categoryTitle(node: CategoryNode | undefined, lang: Lang) {
+  return node ? (lang === 'sr' ? node.name_sr : node.name_en) : '';
+}
+export function categoryParents(nodes: CategoryNode[], id: string): string[] {
+  const seen = new Set<string>(); const chain: string[] = [];
+  let current = nodes.find(n => n.id === id);
+  while (current && !seen.has(current.id)) {
+    chain.unshift(current.id); seen.add(current.id);
+    current = nodes.find(n => n.id === current!.parent_id);
+  }
+  return chain;
+}
+export function CategoryTrail({
+  nodes, value, onChange, root, onRootChange
+}: {
+  nodes: CategoryNode[]; value: string;
+  onChange: (v: string) => void;
+  root?: string; onRootChange?: (v: string) => void;
+}) {
+  const { t, lang } = useSite();
+  const active = nodes.filter(x => x.active).sort((a, b) => a.sort_order - b.sort_order || a.id.localeCompare(b.id));
+  const chain = categoryParents(nodes, value);
+  const selectedRoot = root || chain[0] || '';
+  const groups = active.filter(n => n.parent_id === selectedRoot);
+  const selectedGroup = chain[1] || '';
+  const items = active.filter(n => n.parent_id === selectedGroup);
+  const rootOptions = active.filter(n => !n.parent_id);
+  return <div className="category-trail">
+    <label>{t('Glavna kategorija', 'Main category')}
+      <select required value={selectedRoot} onChange={e => { onRootChange?.(e.target.value); onChange(e.target.value); }}>
+        <option value="">{t('Izaberi oblast', 'Choose discipline')}</option>
+        {rootOptions.map(n => <option key={n.id} value={n.id}>{categoryTitle(n, lang)}</option>)}
+      </select>
+    </label>
+    {selectedRoot && groups.length > 0 && <label>{t('Podkategorija', 'Subcategory')}
+      <select value={selectedGroup} onChange={e => onChange(e.target.value || selectedRoot)}>
+        <option value="">{t('Sve podkategorije', 'All subcategories')}</option>
+        {groups.map(n => <option key={n.id} value={n.id}>{categoryTitle(n, lang)}</option>)}
+      </select>
+    </label>}
+    {selectedGroup && items.length > 0 && <label>{t('Specijalizacija', 'Specialisation')}
+      <select value={chain[2] || ''} onChange={e => onChange(e.target.value || selectedGroup)}>
+        <option value="">{t('Sve specijalizacije', 'All specialisations')}</option>
+        {items.map(n => <option key={n.id} value={n.id}>{categoryTitle(n, lang)}</option>)}
+      </select>
+    </label>}
+  </div>;
 }

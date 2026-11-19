@@ -13,6 +13,14 @@ export type Profile = {
   branch: string;
   specialty: string;
   onboarded: boolean;
+  username: string;
+  cover: string;
+  about: string;
+  skills: string[];
+  github_url: string;
+  behance_url: string;
+  website_url: string;
+  available: boolean;
 };
 export type Listing = {
   id: string;
@@ -22,12 +30,49 @@ export type Listing = {
   title: string;
   body: string;
   category: string;
+  category_id: string | null;
   specialty: string;
+  currency: 'EUR' | 'USD' | 'RSD' | 'GBP';
+  job_type: 'fixed' | 'hourly' | 'oneoff' | 'ongoing';
   tags: string;
   price: number | null;
   deadline: string | null;
   reference_url: string;
   created_at: string;
+};
+export type CategoryNode = {
+  id: string;
+  parent_id: string | null;
+  name_sr: string;
+  name_en: string;
+  icon: string;
+  sort_order: number;
+  active: boolean;
+};
+export type ListingImage = {
+  id: string;
+  listing_id: string;
+  image_path: string;
+  position: number;
+  is_cover: boolean;
+};
+export type PortfolioProject = {
+  id: string;
+  owner_id: string;
+  title: string;
+  description: string;
+  image_paths: string[];
+  project_url: string;
+  created_at: string;
+};
+export type InboxItem = {
+  thread_id: string;
+  listing_id: string;
+  peer_name: string;
+  listing_title: string;
+  last_body: string | null;
+  last_at: string | null;
+  unread: number;
 };
 export type Work = {
   id: string;
@@ -85,6 +130,9 @@ export type Report = {
 };
 export type Tables = {
   profiles: Profile;
+  categories: CategoryNode;
+  listing_images: ListingImage;
+  portfolio_projects: PortfolioProject;
   listings: Listing;
   works: Work;
   slots: Slot;

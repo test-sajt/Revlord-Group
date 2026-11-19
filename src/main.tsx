@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as db from './db';
 import { LogoHeader, Footer } from './shell';
 import { Browse, Detail, Home, Missing, pathOf, PublicProfile } from './Catalog';
-import { Callback, Login, Preferences, ProfileEdit } from './Account';
+import { Callback, Login, Preferences, ProfileEdit, PortfolioEditor } from './Account';
 import { Admin, Chat } from './Messages';
 import { Dashboard } from './Dashboard';
 import { Editor } from './Editor';
@@ -58,6 +58,7 @@ function Page() {
   if (p === '/panel') return <Private><Dashboard /></Private>;
   if (p === '/preferences') return <Private><Preferences /></Private>;
   if (p === '/account/edit') return <Private><ProfileEdit /></Private>;
+  if (p === '/account/portfolio') return <Private><PortfolioEditor /></Private>;
   if (p === '/admin') return <Private>{ctx.admin ? <Admin /> : <Missing />}</Private>;
   return <Missing />;
 }

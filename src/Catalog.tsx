@@ -1,23 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as db from './db';
 import { categories, normalize, safeLink, videoEmbed } from './data';
-import type { Listing, Profile, Work } from './types';
+import type { CategoryNode, Listing, ListingImage, Profile, Work } from './types';
 import { Icon } from './icons';
-import { Avatar, catName, ChatButton, cost, field, Field, Form, Link, needLogin, ReportForm, SignedImage, Task, useData, useSite, Wait, when } from './ui';
+import { Avatar, catName, categoryParents, categoryTitle, ChatButton, cost, field, Field, Form, Link, needLogin, ReportForm, SignedImage, Task, useCategories, useData, useSite, Wait, when } from './ui';
 export const pathOf = (l: Listing) => (l.kind === 'project' ? '/projects/' : '/services/') + l.id;
 // Naslovna, pretraga i portfolio čitaju zapise koje je baza dozvolila trenutnom posetiocu.
 async function catalog(kind: 'service' | 'project') {
-  const [list, people, works, slots] = await Promise.all([db.rows('listings', {
+  const [list, people, works, slots, images] = await Promise.all([db.rows('listings', {
     kind,
     status: 'published'
   }), db.rows('profiles'), db.rows('works'), db.rows('slots', {
     booked: false
-  })]);
+  }), db.rows('listing_images')]);
   return {
     list: list.sort((a, b) => b.created_at.localeCompare(a.created_at)),
     people,
     works: works.sort((a, b) => a.position - b.position),
-    slots
+    slots,
+    images
   };
 }
 function Search({
@@ -44,17 +45,19 @@ function Search({
 function Card({
   l,
   p,
-  w
+  w,
+  image
 }: {
   l: Listing;
   p?: Profile;
   w?: Work;
+  image?: ListingImage;
 }) {
   const {
     t
   } = useSite();
   return <article className="card">
-    {l.kind === 'service' && <Link className="thumbnail" to={pathOf(l)}>{w?.image_path ? <SignedImage path={w.image_path} alt={w.title} /> : <span className="art-placeholder"><Icon name={categories.find(x => x[0] === l.category)?.[1] || 'folder'} size={52} /></span>}</Link>}
+    <Link className="thumbnail" to={pathOf(l)}>{image?.image_path ? <SignedImage path={image.image_path} bucket="listing-images" alt={l.title} /> : w?.image_path ? <SignedImage path={w.image_path} alt={w.title} /> : <span className="art-placeholder"><Icon name={categories.find(x => x[0] === l.category)?.[1] || 'folder'} size={52} /></span>}</Link>
     <div className="card-copy">
       <span className="meta">{catName(l.category, t)} · {l.specialty}</span>
       <h3><Link to={pathOf(l)}>{l.title}</Link></h3>
@@ -64,7 +67,7 @@ function Card({
           <Avatar p={p} />
           {p?.name || t('Autor', 'Creator')}
         </Link>
-        <b>{cost(l.price, t)}</b>
+        <b>{cost(l.price, t, l.currency)}</b>
       </div>
     </div>
   </article>;
@@ -76,7 +79,7 @@ function Cards({
   data: Awaited<ReturnType<typeof catalog>>;
   items: Listing[];
 }) {
-  return <div className="cards">{items.map(l => <Card key={l.id} l={l} p={data.people.find(p => p.id === l.owner_id)} w={data.works.find(w => w.listing_id === l.id && w.image_path)} />)}</div>;
+  return <div className="cards">{items.map(l => <Card key={l.id} l={l} p={data.people.find(p => p.id === l.owner_id)} w={data.works.find(w => w.listing_id === l.id && w.image_path)} image={data.images.find(im => im.listing_id === l.id && im.is_cover) || data.images.find(im => im.listing_id === l.id)} />)}</div>;
 }
 function Empty({
   project = false
@@ -95,8 +98,10 @@ function Empty({
 export function Home() {
   const {
     t,
-    go
+    go,
+    lang
   } = useSite();
+  const hierarchy = useCategories();
   const s = useData(() => catalog('service'), 'home-service'),
     p = useData(() => catalog('project'), 'home-project');
   const featured = s.data?.works.find(w => w.image_path && s.data!.list.some(l => l.id === w.listing_id));
@@ -137,10 +142,9 @@ export function Home() {
     <div className="wrap">
       <section className="categories">
         <h2>{t('Istraži po oblastima', 'Explore by discipline')}</h2>
-        <div className="cat-grid">{categories.map(c => <Link key={c[0]} to={'/services?category=' + c[0]}>
-            <Icon name={c[1]} size={26} />
-            {t(c[2], c[3])}
-          </Link>)}</div>
+        {!hierarchy.data ? <Wait error={hierarchy.error} /> : <div className="cat-grid">{hierarchy.data.filter(c => !c.parent_id && c.active).map(c => <Link key={c.id} to={'/services?cat=' + encodeURIComponent(c.id)}>
+            <Icon name={c.icon} size={26} />{categoryTitle(c, lang)}
+          </Link>)}</div>}
       </section>
       {[s, p].map((q, i) => <section className="band" key={i}>
         <div className="section-title">
@@ -159,62 +163,75 @@ export function Home() {
     </div>
   </>;
 }
-export function Browse({
-  kind
-}: {
-  kind: 'service' | 'project';
-}) {
-  const {
-      url,
-      t,
-      go
-    } = useSite(),
-    q = url.searchParams,
-    data = useData(() => catalog(kind), 'catalog-' + kind);
+export function Browse({kind}: {kind: 'service' | 'project'}) {
+  const { url, t, go, lang } = useSite();
+  const q = url.searchParams;
+  const data = useData(() => catalog(kind), 'catalog-' + kind);
+  const hierarchy = useCategories();
+  const nodes = hierarchy.data || [];
+  const selected = q.get('cat') || q.get('category') || '';
+  const current = nodes.find(n => n.id === selected);
+  const ancestors = selected ? categoryParents(nodes, selected) : [];
+  const children = nodes.filter(n => n.active && n.parent_id === (selected || null))
+    .sort((a,b) => a.sort_order-b.sort_order || a.name_sr.localeCompare(b.name_sr));
+  const legacyRoot = (c: string) => c === 'web' || c === 'scripting' ? 'development' : c;
   function filter(k: string, v: string) {
     const next = new URLSearchParams(q);
-    if (v) next.set(k, v);else next.delete(k);
+    if (v) next.set(k, v); else next.delete(k);
+    if (k === 'cat') next.delete('category');
     go(url.pathname + (next.size ? '?' + next : ''));
   }
+  const numericMax = q.get('max') && Number(q.get('max'));
+  const numericMin = q.get('min') && Number(q.get('min'));
   const list = (data.data?.list || []).filter(l => {
-    const p = data.data?.people.find(x => x.id === l.owner_id),
-      c = categories.find(c => c[0] === l.category);
-    const words = normalize([l.title, l.body, l.tags, l.specialty, c?.[2], c?.[3], p?.name].join(' '));
-    return normalize(q.get('q') || '').split(/\s+/).every(x => words.includes(x)) && (!q.get('category') || q.get('category') === l.category) && (!q.get('spec') || l.specialty === q.get('spec')) && (!q.get('max') || l.price !== null && l.price <= Number(q.get('max'))) && (!q.get('free') || data.data?.slots.some(s => s.owner_id === l.owner_id && Date.parse(s.starts_at) > Date.now()));
-  });
-  return <section className="wrap page">
-    <p className="eyebrow">REVLORD / {kind === 'service' ? t('Usluge', 'Services') : t('Projekti', 'Projects')}</p>
-    <h1>{kind === 'service' ? t('Pronađi stručnjaka', 'Find talent') : t('Otvoreni projekti', 'Open projects')}</h1>
-    <Search value={q.get('q') || ''} search={v => filter('q', v)} />
-    <div className="filters">
-      <label>
-        {t('Oblast', 'Discipline')}
-        <select value={q.get('category') || ''} onChange={e => filter('category', e.target.value)}>
-          <option value="">{t('Sve oblasti', 'All disciplines')}</option>
-          {categories.map(c => <option key={c[0]} value={c[0]}>{t(c[2], c[3])}</option>)}
-        </select>
-      </label>
-      <label>
-        {t('Specijalizacija', 'Specialisation')}
-        <select value={q.get('spec') || ''} onChange={e => filter('spec', e.target.value)}>
-          <option value="">{t('Sve', 'All')}</option>
-          {Array.from(new Set(data.data?.list.map(l => l.specialty).filter(Boolean))).map(x => <option key={x}>{x}</option>)}
-        </select>
-      </label>
-      <label>
-        {t('Maksimalni budžet (€)', 'Maximum budget (€)')}
-        <input type="number" min="0" value={q.get('max') || ''} onChange={e => filter('max', e.target.value)} />
-      </label>
-      {kind === 'service' && <label className="check">
-        <input type="checkbox" checked={q.has('free')} onChange={e => filter('free', e.target.checked ? '1' : '')} />
-        {t('Slobodan termin', 'Available time')}
-      </label>}
+    const person = data.data?.people.find(x => x.id === l.owner_id);
+    const search = normalize([l.title,l.body,l.tags,l.specialty,l.category,person?.name].join(' '));
+    const words = normalize(q.get('q') || '').split(/\s+/).filter(Boolean);
+    // Old listings have no category_id. Keep them searchable by their existing title/tags/specialty;
+    // no automatic database reclassification or invented subcategory is applied.
+    const possibleRoots = [legacyRoot(l.category)];
+    if (['development','scripting','web'].includes(l.category) && /roblox|fivem|minecraft|unity|unreal|sa-mp|open\.mp|godot|gaming|game developer/i.test(search)) possibleRoots.push('gaming');
+    const currentName = normalize(categoryTitle(current,'sr'));
+    const meaningful = currentName.split(/\W+/).filter(x=>x.length>=4);
+    const matchesNode = !selected || (l.category_id
+      ? categoryParents(nodes, l.category_id).includes(selected)
+      : (ancestors.length === 1 ? possibleRoots.includes(selected)
+        : possibleRoots.includes(ancestors[0]) && meaningful.some(x=>search.includes(x))));
+    return matchesNode && words.every(x => search.includes(x))
+      && (!q.get('currency') || l.currency === q.get('currency'))
+      && (!q.get('type') || l.job_type === q.get('type'))
+      && (!numericMin || l.price !== null && l.price >= numericMin)
+      && (!numericMax || l.price !== null && l.price <= numericMax)
+      && (!q.has('free') || data.data?.slots.some(slot => slot.owner_id === l.owner_id && Date.parse(slot.starts_at) > Date.now()));
+  }).sort((a,b) => q.get('sort') === 'oldest' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at));
+  return <section className="wrap page browse-page">
+    <p className="eyebrow">REVLORD / {kind === 'service' ? t('Usluge','Services') : t('Projekti','Projects')}</p>
+    <h1>{kind === 'service' ? t('Pronađi stručnjaka','Find talent') : t('Otvoreni projekti','Open projects')}</h1>
+    <div className="browse-disciplines">
+      <div className="section-title"><h2>{t('Istraži po oblastima','Explore by discipline')}</h2>
+      {selected && <button className="secondary" onClick={() => filter('cat', ancestors.at(-2) || '')}>← {t('Nazad','Back')}</button>}</div>
+      {selected && <div className="breadcrumbs"><button onClick={() => filter('cat','')}>{t('Sve oblasti','All categories')}</button>{ancestors.map(id => <React.Fragment key={id}><span> / </span><button aria-current={id===selected ? 'page' : undefined} onClick={() => filter('cat',id)}>{categoryTitle(nodes.find(n=>n.id===id),lang)}</button></React.Fragment>)}</div>}
+      {!hierarchy.data ? <Wait error={hierarchy.error}/> : <>
+        <div className="category-step-grid">{children.map(node => <button key={node.id} className="category-step" onClick={() => filter('cat',node.id)}><Icon name={node.icon} size={20}/><span>{categoryTitle(node,lang)}</span><Icon name="chevron" size={16}/></button>)}</div>
+        {!children.length && selected && <p className="meta">{categoryTitle(current,lang)}</p>}
+      </>}
     </div>
-    {q.size > 0 && <Link className="text-link" to={url.pathname}>{t('Ukloni filtere', 'Clear filters')}</Link>}
-    {!data.data ? <Wait error={data.error} /> : list.length ? <>
-      <p className="result-bar">{t('Rezultati', 'Results')} ({list.length})</p>
-      <Cards data={data.data} items={list} />
-    </> : q.size ? <p className="empty">{t('Nema rezultata za izabrane filtere.', 'No results match these filters.')}</p> : <Empty project={kind === 'project'} />}
+    <Search value={q.get('q') || ''} search={v => filter('q',v)} />
+    <details className="filters-drawer" open={undefined}><summary><Icon name="sliders" size={17}/>{t('Filteri i sortiranje','Filters and sorting')}</summary>
+      <div className="filters">
+        <label>{t('Min. budžet','Min. budget')}<input type="number" min="0" value={q.get('min') || ''} onChange={e => filter('min',e.target.value)} /></label>
+        <label>{t('Maks. budžet','Max. budget')}<input type="number" min="0" value={q.get('max') || ''} onChange={e => filter('max',e.target.value)} /></label>
+        <label>{t('Valuta','Currency')}<select value={q.get('currency') || ''} onChange={e => filter('currency',e.target.value)}><option value="">{t('Sve valute','All currencies')}</option>{['EUR','USD','RSD','GBP'].map(c => <option key={c}>{c}</option>)}</select></label>
+        <label>{t('Tip posla','Job type')}<select value={q.get('type') || ''} onChange={e => filter('type',e.target.value)}><option value="">{t('Svi tipovi','All types')}</option>{[['fixed','Fiksni budžet','Fixed'],['hourly','Po satu','Hourly'],['oneoff','Jednokratno','One-off'],['ongoing','Dugoročno','Ongoing']].map(([v,sr,en]) => <option key={v} value={v}>{t(sr,en)}</option>)}</select></label>
+        <label>{t('Sortiranje','Sort by')}<select value={q.get('sort') || 'newest'} onChange={e => filter('sort',e.target.value)}><option value="newest">{t('Najnoviji','Newest first')}</option><option value="oldest">{t('Najstariji','Oldest first')}</option></select></label>
+        {kind === 'service' && <label className="check"><input type="checkbox" checked={q.has('free')} onChange={e => filter('free',e.target.checked ? '1':'')}/>{t('Slobodan termin','Available time')}</label>}
+      </div>
+    </details>
+    {q.size > 0 && <button className="text-link clear-filters" onClick={() => go(url.pathname)}>{t('Resetuj sve filtere','Reset all filters')}</button>}
+    {!data.data ? <Wait error={data.error}/> : <>
+      <p className="result-bar">{t('Pronađeno oglasa','Listings found')}: <b>{list.length}</b></p>
+      {list.length ? <Cards data={data.data} items={list}/> : q.size ? <p className="empty">{t('Nema oglasa za izabrane filtere. Probaj drugu oblast ili resetuj filtere.','No matching listings. Try another category or reset filters.')}</p> : <Empty project={kind==='project'}/>}
+    </>}
   </section>;
 }
 function Gallery({
@@ -248,6 +265,18 @@ function Gallery({
       </>}
     </dialog>
   </>;
+}
+function ListingGallery({images, title}: {images: ListingImage[]; title:string}) {
+  const {t} = useSite();
+  const [active,setActive] = useState(0);
+  const [zoom,setZoom] = useState(false);
+  const ordered = [...images].sort((a,b) => Number(b.is_cover)-Number(a.is_cover) || a.position-b.position);
+  const image = ordered[Math.min(active,ordered.length-1)];
+  return <div className="listing-gallery">
+    <button className="listing-cover-image" type="button" onClick={() => setZoom(true)} aria-label={t('Uvećaj sliku oglasa','Enlarge listing image')}><SignedImage bucket="listing-images" path={image.image_path} alt={title} /></button>
+    {ordered.length>1 && <div className="listing-thumbs">{ordered.map((x,i) => <button type="button" key={x.id} aria-label={t('Slika','Image')+' '+(i+1)} aria-pressed={active===i} onClick={() => setActive(i)}><SignedImage bucket="listing-images" path={x.image_path} alt={title+' '+(i+1)}/></button>)}</div>}
+    {zoom && <div className="image-zoom" role="dialog" aria-modal="true" aria-label={t('Slika oglasa','Listing image')}><button type="button" className="modal-close" onClick={() => setZoom(false)} aria-label={t('Zatvori','Close')}>×</button><SignedImage bucket="listing-images" path={image.image_path} alt={title}/></div>}
+  </div>;
 }
 function Engage({
   l,
@@ -304,7 +333,7 @@ function Engage({
     </Link>
     <div className="booking-price">
       {t('Budžet', 'Budget')}
-      <strong>{cost(l.price, t)}</strong>
+      <strong>{cost(l.price, t, l.currency)}</strong>
     </div>
     {l.deadline && <p>{t('Rok', 'Deadline')} · {l.deadline}</p>}
     <hr />
@@ -409,15 +438,15 @@ export function Detail({
       kind
     }))[0];
     if (!l) return null;
-    const [ps, ws] = await Promise.all([db.rows('profiles', {
+    const [ps, ws, imgs] = await Promise.all([db.rows('profiles', {
       id: l.owner_id
     }), db.rows('works', {
       listing_id: id
-    }, '*', 'position')]);
+    }, '*', 'position'), db.rows('listing_images', {listing_id: id}, '*', 'position')]);
     return {
       l,
       p: ps[0],
-      ws
+      ws, imgs
     };
   }, kind + id + user?.id);
   if (q.data === undefined) return <div className="page wrap"><Wait error={q.error} /></div>;
@@ -425,7 +454,7 @@ export function Detail({
   const {
     l,
     p,
-    ws
+    ws, imgs
   } = q.data;
   return <section className="wrap page">
     <Link className="crumb" to={kind === 'project' ? '/projects' : '/services'}>{kind === 'project' ? t('Otvoreni projekti', 'Open projects') : t('Sve usluge', 'All services')}</Link>
@@ -433,6 +462,7 @@ export function Detail({
     <h1>{l.title}</h1>
     <div className="detail-grid">
       <div>
+        {imgs.length > 0 && <ListingGallery images={imgs} title={l.title} />}
         <p className="lead preserve">{l.body}</p>
         <div className="suggestions">{l.tags.split(',').filter(Boolean).map((x, i) => <span key={i}>{x.trim()}</span>)}</div>
         {safeLink(l.reference_url) && <p><a className="text-link" href={safeLink(l.reference_url)} rel="noreferrer" target="_blank">{t('Otvori referencu', 'Open reference')}</a></p>}
@@ -445,41 +475,43 @@ export function Detail({
     </div>
   </section>;
 }
-export function PublicProfile({
-  id
-}: {
-  id: string;
-}) {
-  const {
-    t
-  } = useSite();
-  const q = useData(async () => {
-    const [ps, ls, ws] = await Promise.all([db.rows('profiles', {
-      id
-    }), db.rows('listings', {
-      owner_id: id,
-      status: 'published',
-      kind: 'service'
-    }), db.rows('works')]);
-    return {
-      p: ps[0],
-      ls,
-      ws
-    };
-  }, 'person' + id);
-  if (!q.data) return <div className="wrap page"><Wait error={q.error} /></div>;
-  const {
-    p,
-    ls,
-    ws
-  } = q.data;
-  if (!p) return <Missing />;
-  return <section className="wrap page">
-    <Avatar p={p} />
-    <h1>{p.name || t('Autor', 'Creator')}</h1>
-    <p className="lead preserve">{p.bio}</p>
-    <h2>{t('Usluge autora', 'Services')}</h2>
-    <div className="cards">{ls.map(l => <Card key={l.id} l={l} p={p} w={ws.find(w => w.listing_id === l.id && w.image_path)} />)}</div>
+export function PublicProfile({ id }: {id:string}) {
+  const {t,user} = useSite();
+  const q=useData(async()=>{
+    const [profiles,listings,works,portfolios,images]=await Promise.all([
+      db.rows('profiles',{id}),db.rows('listings',{owner_id:id,status:'published'}),
+      db.rows('works'),db.rows('portfolio_projects',{owner_id:id},'*','created_at'),db.rows('listing_images')
+    ]);
+    return {p:profiles[0],ls:listings,ws:works,portfolios,images};
+  },'person'+id);
+  if(!q.data) return <section className="page wrap"><Wait error={q.error}/></section>;
+  const {p,ls,ws,portfolios,images}=q.data;
+  if(!p) return <Missing/>;
+  const links=[['GitHub',p.github_url],['Behance',p.behance_url],[t('Veb-sajt','Website'),p.website_url]].filter(([,v])=>safeLink(v));
+  return <section className="wrap page profile-page">
+    <div className="profile-cover">{p.cover ? <img src={db.avatar(p.cover)} alt=""/> : <span className="cover-placeholder"/>}
+      <div className="profile-cover-avatar"><Avatar p={p}/></div></div>
+    <div className="profile-head">
+      <div><h1>{p.name || t('Autor','Creator')}</h1>{p.username && <p className="profile-handle">@{p.username}</p>}
+        <span className={'availability '+(p.available?'yes':'')}>{p.available ? t('Dostupan za posao','Available for work') : t('Trenutno nedostupan','Currently unavailable')}</span></div>
+      {user?.id===id && <div className="actions"><Link className="primary" to="/account/edit">{t('Uredi profil','Edit profile')}</Link>
+        <Link className="secondary" to="/account/portfolio">{t('Dodaj projekat','Add project')}</Link></div>}
+    </div>
+    {p.bio && <p className="lead preserve">{p.bio}</p>}
+    {p.about && <div className="profile-panel"><h2>{t('O meni','About me')}</h2><p className="preserve">{p.about}</p></div>}
+    {!!p.skills?.length && <div className="profile-panel"><h2>{t('Veštine i specijalizacije','Skills and specialisations')}</h2><div className="skill-tags">{p.skills.map((s,i)=><span key={i}>{s}</span>)}</div></div>}
+    {!!links.length && <div className="profile-links">{links.map(([name,href])=><a key={name} href={safeLink(href)} target="_blank" rel="noopener noreferrer">{name} ↗</a>)}</div>}
+    <section className="band"><div className="section-title"><h2>Portfolio</h2>{user?.id===id && <Link className="text-link" to="/account/portfolio">{t('Upravljaj projektima','Manage projects')}</Link>}</div>
+      {portfolios.length ? <div className="portfolio-grid">{portfolios.map(project=><article className="portfolio-card" key={project.id}>
+        {project.image_paths[0] && <div className="portfolio-cover"><SignedImage path={project.image_paths[0]} alt={project.title}/></div>}
+        <div className="portfolio-card-copy"><h3>{project.title}</h3><p className="preserve">{project.description}</p>
+        {project.image_paths.length>1 && <div className="portfolio-thumbs">{project.image_paths.slice(1).map(path=><SignedImage key={path} path={path} alt={project.title}/>)}</div>}
+        {safeLink(project.project_url) && <a className="text-link" href={safeLink(project.project_url)} target="_blank" rel="noopener noreferrer">{t('Pogledaj projekat','View project')} ↗</a>}</div>
+      </article>)}</div> : <p className="empty">{t('Portfolio još nema projekata.','No portfolio projects yet.')}</p>}
+    </section>
+    <section className="band"><div className="section-title"><h2>{t('Objavljeni oglasi i usluge','Published listings and services')}</h2>{user?.id===id && <Link className="text-link" to="/new/service">{t('Dodaj uslugu','Add service')}</Link>}</div>
+      {ls.length ? <div className="cards">{ls.map(l=><Card key={l.id} l={l} p={p} w={ws.find(w=>w.listing_id===l.id && w.image_path)} image={images.find(im=>im.listing_id===l.id && im.is_cover)||images.find(im=>im.listing_id===l.id)}/>)}</div> : <p className="empty">{t('Još nema objavljenih oglasa.','No published listings yet.')}</p>}
+    </section>
   </section>;
 }
 export function Missing() {

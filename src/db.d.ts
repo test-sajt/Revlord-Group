@@ -1,4 +1,4 @@
-import type {User,Profile,Tables} from './types';
+import type {User,Profile,Tables,InboxItem} from './types';
 export const configured:boolean,emailEnabled:boolean;
 export function session():Promise<User|null>;
 export function watchAuth(fn:(u:User|null)=>void):()=>void;
@@ -17,3 +17,7 @@ export function dropFile(bucket:string,path:string):Promise<void>;
 export function avatar(path:string):string;
 export function imageUrl(path:string):Promise<string>;
 export function listen(thread:string,refresh:()=>void):()=>void;
+export function listenInbox(refresh:()=>void):()=>void;
+export function inbox():Promise<InboxItem[]>;
+export function markRead(thread:string):Promise<void>;
+export function mediaUrl(bucket:string,path:string):Promise<string>;

@@ -48,13 +48,15 @@ export function Dashboard() {
       <b>{me?.name}</b>
       <button className="text-link" onClick={ctx.refresh}>{t('Osveži podatke', 'Refresh data')}</button>
       <Link to="/account/edit">{t('Uredi profil', 'Edit profile')}</Link>
+      <Link to={'/talent/'+user!.id}>{t('Javni profil','Public profile')}</Link>
+      <Link to="/account/portfolio">{t('Dodaj projekat u portfolio','Add portfolio project')}</Link>
       {ctx.admin && <Link to="/admin">{t('Administracija', 'Administration')}</Link>}
       <Task className="text-link" run={async () => {
         await db.logout();
         ctx.go('/');
       }}>{t('Odjavi se', 'Log out')}</Task>
     </div>
-    <div className="tabs">{[['list', t('Moji oglasi', 'My listings')], ['work', t('Prijave', 'Proposals')], ['book', t('Rezervacije', 'Bookings')], ['slots', t('Dostupnost', 'Availability')], ['chat', t('Poruke', 'Messages')]].map(([v, l]) => <button key={v} aria-pressed={v === tab} onClick={() => setTab(v)}>{l}</button>)}</div>
+    <div className="tabs">{[['list', t('Moji oglasi', 'My listings')], ['work', t('Prijave', 'Proposals')], ['book', t('Rezervacije', 'Bookings')], ['slots', t('Dostupnost', 'Availability')]].map(([v, l]) => <button key={v} aria-pressed={v === tab} onClick={() => setTab(v)}>{l}</button>)}</div>
     {tab === 'list' && <>
       <div className="actions">
         <Link className="primary" to="/new/service">{t('Dodaj uslugu', 'List a service')}</Link>
@@ -69,13 +71,6 @@ export function Dashboard() {
         <Link className="text-link" to={'/edit/' + l.id}>{t('Izmeni', 'Edit')}</Link>
       </div>)}
     </>}
-    {tab === 'chat' && <>{!d.threads.length && empty}{d.threads.map(th => <div className="manage-row" key={th.id}>
-        <div>
-          <b>{name(threadOther(th, user!.id))}</b>
-          <p>{listing(th.listing_id)}</p>
-        </div>
-        <button className="secondary" onClick={() => ctx.openChat(th.id)}>{t('Otvori razgovor', 'Open chat')}</button>
-      </div>)}</>}
     {tab === 'slots' && <>
       <p>{t('Dodaj vreme početka konsultacije. Vreme prikazujemo u tvojoj zoni.', 'Add a consultation start time. Times use your timezone.')} · {Intl.DateTimeFormat().resolvedOptions().timeZone}</p>
       <Form label={t('Dodaj slobodan termin', 'Add availability')} save={async f => {

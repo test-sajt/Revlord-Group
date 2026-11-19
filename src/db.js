@@ -119,7 +119,7 @@ export async function upload(bucket, path, file) {
   });
   let content;
   try {
-    const maxSide = bucket === 'avatars' ? 384 : 1800;
+    const maxSide = bucket === 'avatars' ? (path.includes('/cover/') ? 1600 : 384) : 1800;
     const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(image.width * scale));
@@ -142,9 +142,20 @@ export async function dropFile(bucket, path) {
 export function avatar(path) {
   return path && client ? client.storage.from('avatars').getPublicUrl(path).data.publicUrl : '';
 }
-export async function imageUrl(path) {
-  return path ? checked(await api().storage.from('portfolio').createSignedUrl(path, 3600)).signedUrl : '';
+export async function mediaUrl(bucket, path) {
+  return path ? checked(await api().storage.from(bucket).createSignedUrl(path, 3600)).signedUrl : '';
 }
+export async function imageUrl(path) { return mediaUrl('portfolio', path); }
+export function inbox() { return rpc('inbox_overview', {}); }
+export function markRead(thread) { return rpc('mark_thread_read', {thread}); }
+export function listenInbox(refresh) {
+  const channel = api().channel('inbox-' + crypto.randomUUID())
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, refresh)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'threads' }, refresh)
+    .subscribe();
+  return () => { api().removeChannel(channel); };
+}
+
 export function listen(thread, refresh) {
   const c = api().channel('messages-' + thread + '-' + crypto.randomUUID()).on('postgres_changes', {
     event: 'INSERT',

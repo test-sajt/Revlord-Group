@@ -218,3 +218,19 @@ dialog iframe {
 .card:focus-within {
   border-color: var(--mint);
 }
+
+/* The conversation remains a compact popup on small screens, not a full-screen redirect. */
+@media (max-width:680px) {
+  .chat {
+    inset: auto 8px 8px auto;
+    width: min(395px,calc(100vw - 16px));
+    max-height: min(79dvh,650px);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .chat-history {
+    flex: 1 1 auto;
+    min-height: 130px;
+    max-height: 33dvh;
+  }
+}

@@ -45,7 +45,12 @@ export async function initialize(sqlPath) {
   const sql = await fs.readFile(sqlPath,'utf8');
   const hash = createHash('sha256').update(sql).digest('hex');
   await db.exec(sql);
-  console.log('Migration applied:',hash);
+  if (process.argv[3]) {
+    const upgrade = await fs.readFile(process.argv[3], 'utf8');
+    await db.exec(upgrade);
+    console.log('Non-destructive upgrade applied:',createHash('sha256').update(upgrade).digest('hex'));
+  }
+  console.log('Schema applied:',hash);
   return db;
 }
 
