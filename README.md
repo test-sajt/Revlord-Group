@@ -1,3 +1,7 @@
+# Nadogradnja 19.11.2026.
+
+**Ako ažuriraš postojeći objavljeni RevLord Group sajt:** pogledaj [UPUTSTVO-ZA-AZURIRANJE.md](UPUTSTVO-ZA-AZURIRANJE.md). Ne izvršavaj `supabase/schema.sql` na postojećoj bazi — za ažuriranje koristi isključivo novu migraciju.
+
 # Revlord Group – Digital Services
 
 **Počni od dokumenta [POKRETANJE.md](POKRETANJE.md).** Vodič je na srpskom i prati instalaciju do prve objave korisnika. Platforma se otvara preko lokalne ili javne veb-adrese.

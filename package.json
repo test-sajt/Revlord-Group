@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node tests/integration.mjs supabase/schema.sql",
-    "proveri-vezu": "node --env-file=.env.local scripts/proveri-vezu.mjs"
+    "test": "node tests/integration.mjs supabase/schema.sql supabase/migrations/20261119_revlord_upgrade.sql",
+    "proveri-vezu": "node --env-file=.env.local scripts/proveri-vezu.mjs",
+    "check:upgrade": "node tests/check-upgrade.mjs"
   },
   "dependencies": {
     "react": "18.3.1",
