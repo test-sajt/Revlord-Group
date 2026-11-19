@@ -1,0 +1,234 @@
+<!doctype html><html lang="sr-Latn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Revlord Group · Uputstvo</title><style>*{box-sizing:border-box}body{margin:0;background:#111713;color:#eff5ef;font:17px/1.65 system-ui,sans-serif}main{max-width:900px;margin:auto;padding:32px 24px 80px}h1{font-size:clamp(32px,5vw,55px);letter-spacing:-.055em;line-height:1.1}h2{color:#56e8ab;margin-top:2.4em;letter-spacing:-.03em;line-height:1.3}li{margin-bottom:.5em}a{color:#67eab5}pre{white-space:pre-wrap;background:#203028;padding:16px;border-radius:8px}code{overflow-wrap:anywhere;color:#bbf2d5}table{border-collapse:collapse;display:block;overflow-x:auto}th,td{text-align:left;border:1px solid #405147;padding:8px;min-width:110px}details{border:1px solid #52695b;padding:12px 18px;border-radius:8px}nav a{display:block;margin:5px 0}h2{scroll-margin-top:16px}@media print{body{background:white;color:#171c18}h2,a,code{color:#17472e}details{display:none}}</style></head><body><main><details><summary>Sadržaj vodiča</summary><nav><a href="#korak-1">1. Raspakuj projekat</a><a href="#korak-2">2. Napravi bazu u svom nalogu</a><a href="#korak-3">3. Pripremi dve javne vrednosti za sajt</a><a href="#korak-4">4. Poveži dugme „Nastavi sa Google nalogom“</a><a href="#korak-5">5. Pokreni sajt na računaru</a><a href="#korak-6">6. Sačuvaj kod na GitHubu</a><a href="#korak-7">7. Objavi sajt na besplatni Cloudflare poddomen</a><a href="#korak-8">8. Uključi registraciju mejlom i oporavak lozinke</a><a href="#korak-9">9. Dodeli administratorski pristup vlasniku</a><a href="#korak-10">10. Prođi stvarne putanje pre predaje klijentu</a><a href="#korak-11">Ako nešto stane</a><a href="#korak-12">Besplatni paketi i sopstveni domen</a></nav></details><h1>Revlord Group · Od ZIP fajla do javnog sajta</h1>
+<p><strong>Tvoj projekat Revlord Group je već pripremljen.</strong> U Supabase projektu su postavljene tabele i dozvole. Potvrđeno je 11 tabela sa uključenom zaštitom redova. Lokalne adrese za povratak su sačuvane. U ovom privatnom paketu su već upisani Project URL i javni ključ u .env.local. Preskoči korake 2 i 3, kao i pravljenje .env.local. Za rad na računaru izvrši komande iz koraka 5. Za omogućavanje prijave završi Google podešavanja iz koraka 4.</p>
+<p>Google callback za ovaj projekat je <code>https://zklpmyagdwiikncvcgft.supabase.co/auth/v1/callback</code>. Client Secret unosiš u Google podešavanja provajdera na Supabase kontrolnoj tabli.</p>
+<p>Ovaj vodič prati podešavanje na Windows računaru. GitHub čuva kod, Cloudflare Pages prikazuje sajt, a Supabase čuva naloge, oglase, razgovore i termine. Za početak možeš koristiti besplatnu adresu koju dodeli Cloudflare. Lozinke baze, Google Client Secret i SMTP lozinku unosiš isključivo u odgovarajuće kontrolne table. Nije potrebno da ih šalješ u razgovor.</p>
+<h2 id="korak-1">1. Raspakuj projekat</h2>
+<p>Preuzmi najnoviji ZIP. Klikni desnim tasterom na njega, izaberi <strong>Raspakuj sve / Extract All</strong> i otvori raspakovani folder. Pronađi folder u kojem su zajedno <strong>package.json</strong>, <strong>src</strong> i <strong>supabase</strong>. U nastavku je to „folder projekta“. Za prijavu i poruke sajt se otvara preko lokalne ili javne adrese koju ćeš dobiti u narednim koracima.</p>
+<h2 id="korak-2">2. Napravi bazu u svom nalogu</h2>
+<ol>
+<li>Otvori <a href="https://supabase.com/dashboard">Supabase Dashboard</a> i prijavi se. Izaberi svoju organizaciju na planu <strong>Free</strong>, pa <strong>New project</strong>.</li>
+<li>Upiši naziv <strong>Revlord Group</strong>, izaberi odgovarajući evropski region i generiši jaku lozinku baze. Sačuvaj je u svom menadžeru lozinki. Klikni <strong>Create new project</strong> i sačekaj da projekat postane dostupan.</li>
+<li>U folderu projekta otvori <strong>supabase/schema.sql</strong> pomoću Notepada ili drugog uređivača teksta. Pritisni <strong>Ctrl+A</strong>, pa <strong>Ctrl+C</strong>.</li>
+<li>U novom, praznom Supabase projektu otvori <strong>SQL Editor → New query</strong>. Nalepi ceo sadržaj, pa klikni <strong>Run</strong>. Skripta postavlja tabele i dozvole. Ako vidiš crvenu SQL grešku, zapiši njen tekst i stani na tom koraku. Za postojeću bazu sa drugim aplikacijama izdvoji poseban projekat.</li>
+<li><strong>Provera.</strong> U <strong>Table Editor → public</strong> pronađi tabele <strong>listings</strong> (oglasi), <strong>threads</strong> (razgovori) i <strong>messages</strong> (pojedinačne poruke). U <strong>Storage</strong> treba da postoje spremišta <strong>avatars</strong> i <strong>portfolio</strong>. Prazne liste na prvom otvaranju sajta su očekivane. Prvi oglas se pojavljuje tek po objavi stvarnog korisnika.</li>
+</ol>
+<h2 id="korak-3">3. Pripremi dve javne vrednosti za sajt</h2>
+<p>U otvorenom Supabase projektu klikni <strong>Connect</strong>. Kopiraj <strong>Project URL</strong> i <strong>Publishable key</strong>. Ključ je dostupan i pod <strong>Settings → API Keys</strong>. Podatke iz iste kartice koristi i lokalno i na Cloudflare-u. <a href="https://supabase.com/docs/guides/getting-started/api-keys">Supabase vodič za API ključeve</a></p>
+<table>
+<thead>
+<tr>
+<th>Naziv postavke</th>
+<th>Šta kopiraš</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>VITE_SUPABASE_URL</code></td>
+<td>Puni Project URL, oblika <code>https://oznaka-projekta.supabase.co</code></td>
+</tr>
+<tr>
+<td><code>VITE_SUPABASE_PUBLISHABLE_KEY</code></td>
+<td>Publishable key koji počinje sa <code>sb_publishable_</code></td>
+</tr>
+<tr>
+<td><code>VITE_EMAIL_AUTH</code></td>
+<td>Upiši <code>false</code> za početak sa Google prijavom. Promeni u <code>true</code> nakon podešavanja slanja mejlova u koraku 8.</td>
+</tr>
+</tbody></table>
+<p>Pregledač može da pročita svaku vrednost sa prefiksom <code>VITE_</code>. Ključeve <code>sb_secret_</code> i <code>service_role</code> čuvaj van tih polja. Dozvole po korisniku sprovodi baza kroz politike iz SQL skripte.</p>
+<h2 id="korak-4">4. Poveži dugme „Nastavi sa Google nalogom“</h2>
+<ol>
+<li>U Supabase projektu otvori <strong>Authentication → Sign In / Providers → Google</strong>. Kopiraj prikazanu adresu <strong>Callback URL</strong>. Obično se završava sa <code>/auth/v1/callback</code>. Tu adresu vraća Google nakon što korisnik izabere nalog.</li>
+<li>U <a href="https://console.cloud.google.com/">Google Cloud konzoli</a> izaberi projekat za Revlord ili napravi novi. Otvori <strong>Google Auth Platform</strong>. Ako je ovo prvo podešavanje, klikni <strong>Get started</strong>. U <strong>Branding</strong> popuni naziv aplikacije, adresu za podršku i kontakt. U <strong>Audience</strong> izaberi <strong>External</strong> ako će se prijavljivati ljudi van tvoje organizacije. Dok je aplikacija u režimu <strong>Testing</strong>, dodaj svoje test adrese u <strong>Test users</strong>.</li>
+<li>U <strong>Clients → Create client</strong> izaberi <strong>Web application</strong>. Nazovi klijent <strong>Revlord web</strong>. U <strong>Authorized JavaScript origins</strong> dodaj <code>http://localhost:5173</code>. U <strong>Authorized redirect URIs</strong> nalepi tačnu Supabase adresu iz prve stavke. Klikni <strong>Create</strong>. Kopiraj <strong>Client ID</strong> i <strong>Client secret</strong>.</li>
+<li>Vrati se u Supabase u podešavanje Google provajdera. Uključi ga, unesi ID i secret i klikni <strong>Save</strong>. U <strong>Authentication → URL Configuration</strong> za lokalnu proveru pod <strong>Site URL</strong> unesi <code>http://localhost:5173</code>. U <strong>Redirect URLs</strong> dodaj obe pune adrese ispod i sačuvaj promene.</li>
+</ol>
+<pre><code class="language-text">http://localhost:5173/auth/callback
+http://localhost:5173/auth/reset
+</code></pre>
+<p>Supabase vraća korisnika na prvu adresu posle prijave, a na drugu posle zahteva za promenu lozinke. Za razvoj na računaru koristi isto ime domaćina i isti port od početka do kraja prijave. <a href="https://supabase.com/docs/guides/auth/social-sign-in/auth-google">Google prijava</a> · <a href="https://supabase.com/docs/guides/auth/redirect-urls">Supabase adrese za povratak</a></p>
+<h2 id="korak-5">5. Pokreni sajt na računaru</h2>
+<ol>
+<li>Instaliraj aktuelno <strong>LTS</strong> izdanje sa <a href="https://nodejs.org/">nodejs.org</a>, pa zatvori i ponovo otvori terminal ako je već otvoren.</li>
+<li>U Windows Exploreru otvori folder projekta. Klikni na adresnu liniju na vrhu, upiši <strong>cmd</strong> i pritisni <strong>Enter</strong>. Otvoriće se komandna linija u tom folderu. Ukucaj sledeću komandu.</li>
+</ol>
+<pre><code class="language-bat">notepad .env.local
+</code></pre>
+<ol start="3">
+<li>Ako Notepad pita da li da napravi fajl, potvrdi. Nalepi tri reda ispod i zameni prve dve vrednosti svojim vrednostima iz koraka 3. Pritisni <strong>Ctrl+S</strong> i zatvori Notepad.</li>
+</ol>
+<pre><code class="language-dotenv">VITE_SUPABASE_URL=https://oznaka-projekta.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ovde_nalepi_svoj_kljuc
+VITE_EMAIL_AUTH=false
+</code></pre>
+<ol start="4">
+<li>U istom terminalu izvrši jednu po jednu komandu. Između komandi sačekaj da se vrati komandni red.</li>
+</ol>
+<pre><code class="language-bat">npm install
+npm test
+npm run proveri-vezu
+npm run build
+npm run dev -- --port 5173 --strictPort
+</code></pre>
+<p>   Komanda <strong>npm test</strong> pokreće osam grupa provera u privremenoj bazi u memoriji. <strong>npm run proveri-vezu</strong> čita tvoj Supabase projekat, proverava dostupnost javnih tabela i da privatne tabele odbijaju anonimni zahtev. Ove komande ne objavljuju oglase u tvojoj bazi. Ako Windows ne pronađe .env.local, u Exploreru uključi prikaz nastavaka datoteka i proveri da na kraju nije dodato .txt.</p>
+<ol start="5">
+<li>Otvori <strong><a href="http://localhost:5173">http://localhost:5173</a></strong> u Chrome-u ili Edge-u. Terminal ostavi otvoren dok koristiš sajt. Izaberi <strong>Prijavi se</strong>, klikni na Google prijavu i prijavi se jednim od odobrenih Google naloga. Vratićeš se na sajt. U Supabase kartici <strong>Authentication → Users</strong> proveri da postoji tvoja adresa.</li>
+<li>Za sledeće lokalno pokretanje dovoljna je poslednja komanda. Ako menjaš <code>.env.local</code>, ugasi server sa <strong>Ctrl+C</strong> i pokreni ga ponovo.</li>
+</ol>
+<h2 id="korak-6">6. Sačuvaj kod na GitHubu</h2>
+<ol>
+<li>Na <a href="https://github.com/new">GitHubu</a> napravi nov repozitorijum <strong>revlord-group</strong>. Možeš izabrati <strong>Private</strong>. Ostavi ga praznog.</li>
+<li>Klikni <strong>uploading an existing file</strong>, ili <strong>Add file → Upload files</strong> ako ta opcija već postoji. Otvori folder projekta u Exploreru. Pošalji izvorne foldere <strong>src</strong>, <strong>public</strong>, <strong>supabase</strong>, <strong>tests</strong>, <strong>scripts</strong> i ostale fajlove za izgradnju iz isporučenog paketa, uključujući <strong>package.json</strong>, <strong>index.html</strong>, TypeScript/Vite podešavanja i datoteku zaključanih verzija paketa ako postoji. Uključi i <strong>.gitignore</strong>. Izostavi <strong>node_modules</strong>, <strong>dist</strong>, <strong>.git</strong> i fajlove sa lokalnim pristupnim podacima, posebno <strong>.env.local</strong>. ZIP prvo raspakuj.</li>
+<li>Potvrdi preko <strong>Commit changes</strong>. Na početnoj stranici repozitorijuma proveri da vidiš <strong>package.json</strong>. Ako si poslao ceo folder kao jedan podfolder, zapiši njegov naziv za <strong>Root directory</strong> u narednom koraku.</li>
+</ol>
+<h2 id="korak-7">7. Objavi sajt na besplatni Cloudflare poddomen</h2>
+<ol>
+<li>U <a href="https://dash.cloudflare.com/">Cloudflare Dashboard</a> otvori <strong>Workers &amp; Pages → Create application → Pages → Connect to Git</strong>. Izaberi GitHub i odobri pristup repozitorijumu <strong>revlord-group</strong>.</li>
+<li>Izaberi repozitorijum, produkcionu granu (obično <strong>main</strong>) i naziv projekta. U postavkama izgradnje unesi sledeće.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Postavka u Cloudflare-u</th>
+<th>Vrednost</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Framework preset</td>
+<td>React (Vite), ako je ponuđen</td>
+</tr>
+<tr>
+<td>Build command</td>
+<td><code>npm run build</code></td>
+</tr>
+<tr>
+<td>Build output directory</td>
+<td><code>dist</code></td>
+</tr>
+<tr>
+<td>Root directory</td>
+<td>Prazno ako se <strong>package.json</strong> vidi na početnoj stranici repozitorijuma. Inače putanja do njegovog foldera.</td>
+</tr>
+<tr>
+<td>Environment variables, Production</td>
+<td>Iste tri vrednosti kao u koraku 5</td>
+</tr>
+</tbody></table>
+<ol start="3">
+<li>Klikni <strong>Save and Deploy</strong>. Kada objava dobije status <strong>Success</strong>, otvori stalnu produkcionu adresu koja se završava sa <strong>.pages.dev</strong>. Ako si vrednosti uneo naknadno pod <strong>Settings → Variables and Secrets</strong>, pokreni novu izgradnju. <a href="https://developers.cloudflare.com/pages/get-started/git-integration/">Cloudflare Git povezivanje</a> · <a href="https://developers.cloudflare.com/pages/configuration/build-configuration/">Postavke izgradnje</a></li>
+<li>Kopiraj stalnu adresu, npr. <code>https://tvoj-naziv.pages.dev</code>. U Supabase <strong>Authentication → URL Configuration</strong> postavi je kao <strong>Site URL</strong>. U <strong>Redirect URLs</strong> dodaj svoje pune produkcione adrese sa <code>/auth/callback</code> i <code>/auth/reset</code> na kraju. Zadrži i lokalne adrese za razvoj.</li>
+<li>U Google <strong>Auth Platform → Clients</strong> otvori napravljeni web klijent i u <strong>Authorized JavaScript origins</strong> dodaj istu javnu adresu, bez putanje. Google <strong>Authorized redirect URI</strong> i dalje vodi do Supabase projekta. Za javnu prijavu u <strong>Audience</strong> postavi aplikaciju u produkciju i završi eventualne korake koje Google traži za tvoj nalog i brend.</li>
+<li><strong>Provera.</strong> Otvori javni link u drugom pregledaču ili na telefonu. Prijavi se preko Google-a. Završna adresa treba da bude tvoj javni sajt. Otvori stvarni objavljeni oglas, kopiraj njegov link u novu karticu i pritisni <strong>F5</strong>. Mora da se otvori isti oglas.</li>
+</ol>
+<h2 id="korak-8">8. Uključi registraciju mejlom i oporavak lozinke</h2>
+<p>Ugrađeni Supabase pošiljalac ima ograničenja za članove projektnog tima. Za javne korisnike poveži sopstveni SMTP nalog kod provajdera transakcionih mejlova. Proveri da njegov besplatan paket i uslovi verifikacije pošiljaoca odgovaraju tvom nalogu i domenu. <a href="https://supabase.com/docs/guides/auth/auth-smtp">Supabase SMTP</a></p>
+<ol>
+<li>Kod provajdera potvrdi pošiljaoca i po potrebi domen. Kopiraj SMTP host, port, korisničko ime, lozinku i odobrenu adresu pošiljaoca.</li>
+<li>U Supabase <strong>Authentication → Email / SMTP settings</strong> uključi <strong>Custom SMTP</strong>, unesi te podatke i sačuvaj. U <strong>Sign In / Providers → Email</strong> uključi prijavu mejlom i potvrdu adrese. Za standardne šablone potvrde i oporavka zadrži link koji koristi <code>{{ .ConfirmationURL }}</code>.</li>
+<li>Lokalno promeni <code>VITE_EMAIL_AUTH</code> na <code>true</code> i pokreni ponovo razvojni server. Registruj sopstvenu adresu koja nije član Supabase tima. Otvori potvrdni link i prijavi se. Zatim pokreni oporavak lozinke i prijavi se novom lozinkom. Tok potvrde i oporavka proveri u istom pregledaču u kojem si ga započeo.</li>
+<li>Posle uspešne provere u Cloudflare <strong>Production</strong> postavi <code>VITE_EMAIL_AUTH=true</code> i ponovo izgradi sajt. Ponovi oba toka na javnoj adresi.</li>
+</ol>
+<h2 id="korak-9">9. Dodeli administratorski pristup vlasniku</h2>
+<ol>
+<li>Vlasnik se jednom prijavljuje na sajt. U Supabase <strong>Authentication → Users</strong> pronađi njegovu adresu i kopiraj <strong>User UID</strong>. Proveri adresu pre davanja ovlašćenja.</li>
+<li>U <strong>SQL Editor → New query</strong> nalepi ovu komandu. Zameni tekst između apostrofa stvarnim UID-om vlasnika i klikni <strong>Run</strong>.</li>
+</ol>
+<pre><code class="language-sql">insert into public.admins (user_id)
+values (&#39;OVDE-NALEPI-UID-VLASNIKA&#39;)
+on conflict do nothing;
+</code></pre>
+<ol start="3">
+<li>Osveži sajt u nalogu vlasnika i otvori administraciju. Za pristup prijavljenom razgovoru unesi razlog. Posle otvaranja razgovora u Supabase <strong>Table Editor → moderation_log</strong> pronađi zapis sa UID-om administratora, razgovorom, razlogom i vremenom. Običan korisnik treba da ima pristup samo razgovorima u kojima učestvuje.</li>
+</ol>
+<h2 id="korak-10">10. Prođi stvarne putanje pre predaje klijentu</h2>
+<p>Koristi dva zasebna profila pregledača za obične naloge, A i B. Za proveru pristupa razgovoru prvo koristi treći običan nalog C, a zatim dodeli nalogu C administraciju za poslednji test. U dogovoru s klijentom koristi stvarni prvi oglas i projekat ili zasebnu test-bazu. Ovi koraci proveravaju tvoju objavu i naloge kod provajdera.</p>
+<table>
+<thead>
+<tr>
+<th>Ko radi</th>
+<th>Radnja</th>
+<th>Šta treba da vidiš</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A, stručnjak</td>
+<td>Izabere oblast i specijalizaciju, pripremi uslugu, dodaje portfolio i sačuva nacrt</td>
+<td>Nacrt se vidi u njegovom panelu. Posetilac ga ne nalazi u pretrazi.</td>
+</tr>
+<tr>
+<td>A, pa B</td>
+<td>A objavi uslugu i postavi termin. B unese naziv ili veštinu u pretragu i otvori rezultat</td>
+<td>B otvara isti portfolio i vidi dostupnost u svojoj vremenskoj zoni.</td>
+</tr>
+<tr>
+<td>A i B</td>
+<td>Iz oglasa započnu razgovor i razmene po jednu poruku, zatim osveže stranicu</td>
+<td>Obe osobe dobijaju odgovor i imaju istoriju razgovora.</td>
+</tr>
+<tr>
+<td>B, pa A</td>
+<td>B traži slobodan termin. A potvrdi zahtev</td>
+<td>Status se promeni kod obe osobe. Ponovljena radnja ne stvara duplu rezervaciju.</td>
+</tr>
+<tr>
+<td>B, pa A</td>
+<td>B objavi projekat, A pošalje prijavu sa ponudom, B pregleda prijavu i izabere saradnika</td>
+<td>Vlasnik vidi prijave za svoj projekat, a stručnjak status svoje prijave.</td>
+</tr>
+<tr>
+<td>C kao običan korisnik, zatim kao administrator</td>
+<td>A ili B prijavi razgovor. C najpre proveri da mu tuđi razgovor nije dostupan. Vlasnik mu potom dodeli admin pristup prema koraku 9.</td>
+<td>Ovlašćeni pristup ima zabeležen razlog i trag pregleda.</td>
+</tr>
+<tr>
+<td>A, B i C kao obični korisnici, pre dodele administracije</td>
+<td>B i C zatraže isti A-ov termin. A pokuša da potvrdi oba zahteva.</td>
+<td>Najviše jedna potvrđena rezervacija za isti termin.</td>
+</tr>
+<tr>
+<td>Gost na telefonu</td>
+<td>Otvori oglas direktnim linkom, promeni SR/EN i osveži stranicu</td>
+<td>Jezik ostaje izabran, oglas dostupan, a sadržaj oglasa sačuvan kako ga je autor uneo.</td>
+</tr>
+</tbody></table>
+<h2 id="korak-11">Ako nešto stane</h2>
+<table>
+<thead>
+<tr>
+<th>Simptom</th>
+<th>Gde da proveriš</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Google prijavljuje <code>redirect_uri_mismatch</code></td>
+<td>Uporedi Google <strong>Authorized redirect URIs</strong> sa adresom koju prikazuje Supabase Google provider, uključujući protokol i celu putanju.</td>
+</tr>
+<tr>
+<td>Google prijava radi samo vlasniku</td>
+<td>Proveri <strong>Audience</strong>, <strong>Testing/Production</strong> i <strong>Test users</strong> kod Google-a.</td>
+</tr>
+<tr>
+<td>Posle javne prijave otvara se localhost</td>
+<td>Proveri <strong>Site URL</strong> i oba produkciona <strong>Redirect URLs</strong> u Supabase-u.</td>
+</tr>
+<tr>
+<td>Prijava radi, a liste ili objava prikazuju grešku dozvole</td>
+<td>Proveri da URL i javni ključ pripadaju istom projektu i da je ceo SQL završen uspešno. Sačuvaj tekst greške za otklanjanje uzroka. Pravila pristupa treba da ostanu uključena.</td>
+</tr>
+<tr>
+<td>Registracija ne šalje mejl</td>
+<td>Proveri Supabase <strong>Auth logs</strong>, dnevnike SMTP provajdera, potvrđenog pošiljaoca, adresu primaoca i kvotu slanja.</td>
+</tr>
+<tr>
+<td>Lokalna adresa je zauzeta</td>
+<td>Zaustavi prethodni Revlord terminal sa <strong>Ctrl+C</strong> i pokreni razvojni server jednom na portu 5173.</td>
+</tr>
+<tr>
+<td>Javna izgradnja prijavljuje da nema package.json</td>
+<td>U Cloudflare-u proveri <strong>Root directory</strong> prema rasporedu repozitorijuma, pa ponovi izgradnju.</td>
+</tr>
+</tbody></table>
+<h2 id="korak-12">Besplatni paketi i sopstveni domen</h2>
+<p>Prema cenovnicima proverenim 19. novembra 2026, Supabase Free obuhvata 500 MB baze po projektu, 1 GB prostora za datoteke i 50.000 mesečno aktivnih korisnika. Navodi i 5 GB redovnog i 5 GB keširanog izlaznog prenosa. Posle nedelju dana neaktivnosti projekat može biti pauziran. Vlasnik prati potrošnju u <strong>Usage</strong> i po potrebi vraća pauzirani projekat iz kontrolne table. <a href="https://supabase.com/pricing">Supabase cenovnik</a></p>
+<p>Cloudflare Pages Free navodi do 500 izgradnji mesečno, jednu istovremenu izgradnju i pojedinačnu statičku datoteku do 25 MiB. Kada dosegneš mesečnu kvotu izgradnji, planiraj sledeću objavu nakon obnove kvote ili uz odobrenu promenu plana. Cene i pravila proveri neposredno pre lansiranja. <a href="https://developers.cloudflare.com/pages/platform/limits/">Cloudflare ograničenja</a></p>
+<p>Kada kupiš domen, u Pages projektu otvori <strong>Custom domains → Set up a domain</strong> i prati DNS korake za tvoj domen. Sačekaj status <strong>Active</strong> i proveri HTTPS. Potom ponovi podešavanje produkcionog <strong>Site URL</strong>, obe adrese za povratak i Google <strong>Authorized JavaScript origins</strong> za novi domen. Uradi jednu prijavu, pošalji jednu poruku i otvori deljeni oglas preko nove adrese. <a href="https://developers.cloudflare.com/pages/configuration/custom-domains/">Cloudflare povezivanje domena</a></p>
+</main></body></html>
