@@ -14,6 +14,9 @@ const messages=await load('src/Messages.tsx');
 const baseSchema=await load('supabase/schema.sql');
 const css=await load('src/style.css');
 const workspace=await load('src/workspace.css');
+const redesignSql=await load('supabase/migrations/20261119_revlord_redesign.sql');
+const revamp=await load('src/revamp.css');
+const db=await load('src/db.js');
 let count=0;
 function check(label,fn){fn();console.log('PASS: '+label);count++;}
 check('Migration never drops or truncates existing tables',()=>{
@@ -39,7 +42,7 @@ check('Authenticated editable categories, privacy protected profiles and portfol
  for(const k of ['categories_insert','categories_delete','profile_edit','portfolio_projects_edit','unique_username']) assert.ok((sql+'\n'+baseSchema).includes(k));
 });
 check('Search uses live query parameters and real listing data',()=>{
- for(const k of ["db.rows('listings'", "filter('currency'", "filter('type'", "filter('min'", "filter('max'", "filter('sort'", "categoryParents(nodes, l.category_id)", 'Reset all filters']) assert.ok(browse.includes(k),k);
+ for(const k of ["db.rows('listings'", "filter('currency'", "filter('type'", "params.set('min'", "params.set('max'", "filter('sort'", "categoryParents(nodes, l.category_id)", 'Reset all filters']) assert.ok(browse.includes(k),k);
 });
 check('Responsive breakpoints cover 320–desktop, compact mobile chat',()=>{
  for(const key of ['max-width:520px','max-width:760px','max-width:350px']) assert.ok(css.includes(key),key);
@@ -49,5 +52,25 @@ check('Profiles, portfolio and admin UI integrated',()=>{
  assert.match(account,/export function PortfolioEditor/);
  assert.match(account,/export function ProfileEdit/);
  assert.match(messages,/<CategoryAdmin\s*\/>/);
+});
+check('Redesign preserves original logo, offers desktop and mobile menu with requested order',()=>{
+  const order=["to:'/'", "to:'/new/project'", "to:'/new/service'", "to:'/services'"];
+  let pos=-1;
+  for (const item of order) {const i=shell.indexOf(item,pos+1);assert.ok(i>pos,item);pos=i;}
+  assert.match(shell,/className="brand"/);
+  assert.match(shell,/rg-desktop-nav/);
+  assert.match(shell,/rg-mobile-panel/);
+  assert.match(shell,/user \? <Inbox \/> : <Link className="rg-signin"/);
+  assert.match(shell,/rg-languages/);
+  assert.match(revamp,/@keyframes rg-lava-a/);
+});
+check('Per-user chat deletion is optional and never deletes other participants messages',()=>{
+  assert.match(inbox,/deleteChatForMe/);
+  assert.match(db,/chat_history.*not found/);
+  assert.match(redesignSql,/create table if not exists public.chat_hides/i);
+  assert.match(redesignSql,/create or replace function public.delete_chat_for_me/i);
+  assert.match(redesignSql,/create or replace function public.chat_history/i);
+  assert.doesNotMatch(redesignSql,/delete\s+from\s+public\.messages|drop\s+table|truncate\s+table/i);
+  assert.match(redesignSql,/auth\.uid\(\) in \(t\.owner_id, t\.peer_id\)/i);
 });
 console.log(`PASS: ${count} static upgrade checks. Live backend and browser tests still required.`);

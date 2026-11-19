@@ -147,6 +147,17 @@ export async function mediaUrl(bucket, path) {
 }
 export async function imageUrl(path) { return mediaUrl('portfolio', path); }
 export function inbox() { return rpc('inbox_overview', {}); }
+export function deleteChatForMe(thread) { return rpc('delete_chat_for_me', {thread}); }
+export async function chatHistory(thread) {
+  try { return await rpc('chat_history', {thread}); }
+  catch (error) {
+    // Keep existing conversations functional even before the new optional SQL migration is applied.
+    if (/PGRST202|chat_history.*not found|could not find the function/i.test(String(error?.message || error))) {
+      return rows('messages', {thread_id: thread}, '*', 'created_at');
+    }
+    throw error;
+  }
+}
 export function markRead(thread) { return rpc('mark_thread_read', {thread}); }
 export function listenInbox(refresh) {
   const channel = api().channel('inbox-' + crypto.randomUUID())

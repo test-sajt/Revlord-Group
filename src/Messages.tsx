@@ -54,9 +54,7 @@ export function Chat({
     async function fetchHistory() {
       const n = ++sequence;
       try {
-        const data = await db.rows('messages', {
-          thread_id: id
-        }, '*', 'created_at');
+        const data = await db.chatHistory(id);
         if (active && n === sequence) {
           setMessages(data);
           const received = data.filter(m => m.sender !== user!.id).at(-1)?.id || '';

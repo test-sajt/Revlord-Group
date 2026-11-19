@@ -1,4 +1,4 @@
-import type {User,Profile,Tables,InboxItem} from './types';
+import type {User,Profile,Tables,InboxItem,Message} from './types';
 export const configured:boolean,emailEnabled:boolean;
 export function session():Promise<User|null>;
 export function watchAuth(fn:(u:User|null)=>void):()=>void;
@@ -21,3 +21,6 @@ export function listenInbox(refresh:()=>void):()=>void;
 export function inbox():Promise<InboxItem[]>;
 export function markRead(thread:string):Promise<void>;
 export function mediaUrl(bucket:string,path:string):Promise<string>;
+
+export function chatHistory(thread:string):Promise<Message[]>;
+export function deleteChatForMe(thread:string):Promise<void>;

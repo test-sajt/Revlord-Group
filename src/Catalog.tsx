@@ -96,72 +96,73 @@ function Empty({
   </div>;
 }
 export function Home() {
-  const {
-    t,
-    go,
-    lang
-  } = useSite();
+  const { t, go, lang, user } = useSite();
   const hierarchy = useCategories();
-  const s = useData(() => catalog('service'), 'home-service'),
-    p = useData(() => catalog('project'), 'home-project');
+  const s = useData(() => catalog('service'), 'home-service');
+  const p = useData(() => catalog('project'), 'home-project');
   const featured = s.data?.works.find(w => w.image_path && s.data!.list.some(l => l.id === w.listing_id));
-  const l = s.data?.list.find(x => x.id === featured?.listing_id);
-  return <>
-    <section className="hero-zone"><div className="wrap hero">
-        <div className="intro">
-          <p className="eyebrow">
-            <span className="signal" />
-            {t('Mreža digitalnih stručnjaka', 'Digital talent network')}
-          </p>
-          <h1>
-            {t('Ko ti treba za', 'Who do you need')}
-            <em>{t('sledeći projekat?', 'for your next project?')}</em>
-          </h1>
-          <p>{t('Upoznaj autore kroz njihove radove. Pronađi saradnika za igru, brend ili sajt i dogovori posao direktno.', 'Meet creators through their work. Find a collaborator for a game, a brand or a website and discuss the project directly.')}</p>
-          <Search search={q => go('/services?q=' + encodeURIComponent(q))} />
-          <div className="suggestions">
-            <span>{t('Istraži', 'Explore')}</span>
-            {['Roblox', 'Python', 'Blender'].map(q => <Link key={q} to={'/services?q=' + q}>{q}</Link>)}
+  const featuredListing = s.data?.list.find(x => x.id === featured?.listing_id);
+  const roots = (hierarchy.data || []).filter(c => !c.parent_id && c.active)
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const counts = (id:string) => (hierarchy.data || []).filter(node => node.active && node.id !== id && categoryParents(hierarchy.data || [], node.id).includes(id)).length;
+  return <div className="rg-home">
+    <section className="rg-hero-zone" aria-labelledby="rg-hero-title">
+      <div className="rg-hero-grid" aria-hidden="true" />
+      <div className="wrap rg-hero-layout">
+        <div className="rg-hero-copy">
+          <div className="rg-kicker"><span className="rg-kicker-light" />REVLORD GROUP <span className="rg-kicker-rule" /> {t('PLATFORMA ZA DIGITALNE TALENTE','DIGITAL TALENT PLATFORM')}</div>
+          <h1 id="rg-hero-title">{t('Prave veštine.','The right skills.')}<br /><span className="rg-neon-heading">{t('Velike ideje.','Big ideas.')}</span></h1>
+          <p className="rg-hero-lead">{t('Pronađi developere, dizajnere i gaming kreatore. Ili pokaži svetu šta umeš — direktno, brzo i na jednom mestu.','Find developers, designers and gaming creators. Or show the world what you can do — directly, simply, in one place.')}</p>
+          <div className="rg-hero-actions">
+            <Link to="/services" className="primary rg-hero-main-cta">{t('Pronađi stručnjaka','Find a specialist')} <Icon name="arrow-up-right" size={18}/></Link>
+            <Link to="/new/service" className="rg-outline-cta">{t('Ponudi svoje veštine','Offer your skills')} <Icon name="chevron" size={16}/></Link>
           </div>
+          <div className="rg-hero-search"><Search search={q => go('/services?q=' + encodeURIComponent(q))} /></div>
+          <div className="rg-hero-tags"><small>{t('Popularne oblasti','Explore skills')}</small>{['Roblox','FiveM','React','Blender'].map(tag => <Link key={tag} to={'/services?q=' + encodeURIComponent(tag)}>{tag} <span>↗</span></Link>)}</div>
         </div>
-        <article className="featured">{featured && l ? <>
-            <Link className="feature-image" to={pathOf(l)}><SignedImage path={featured.image_path} alt={featured.title} /></Link>
-            <div className="feature-tag">{t('Iz portfolija', 'From the portfolio')}</div>
-            <div className="feature-caption"><div>
-                <span className="meta">{l.specialty}</span>
-                <Link to={pathOf(l)}><h2>{featured.title}</h2></Link>
-              </div></div>
-          </> : <>
-            <img className="brand-art" src="/art/revlord-world.jpg" alt={t('Studijska ilustracija futurističke stanice u šumi', 'Studio illustration of a futuristic forest station')} />
-            <div className="feature-caption"><div>
-                <span className="meta">REVLORD GROUP</span>
-                <h2>Digital Services</h2>
-              </div></div>
-          </>}</article>
-      </div></section>
-    <div className="wrap">
-      <section className="categories">
-        <h2>{t('Istraži po oblastima', 'Explore by discipline')}</h2>
-        {!hierarchy.data ? <Wait error={hierarchy.error} /> : <div className="cat-grid">{hierarchy.data.filter(c => !c.parent_id && c.active).map(c => <Link key={c.id} to={'/services?cat=' + encodeURIComponent(c.id)}>
-            <Icon name={c.icon} size={26} />{categoryTitle(c, lang)}
-          </Link>)}</div>}
-      </section>
-      {[s, p].map((q, i) => <section className="band" key={i}>
-        <div className="section-title">
-          <h2>{i ? t('Otvoreni projekti', 'Open projects') : t('Usluge i portfoliji', 'Services and portfolios')}</h2>
-          <Link className="text-link" to={i ? '/projects' : '/services'}>{t('Vidi sve', 'View all')}</Link>
+        <div className="rg-hero-art-wrap">
+          <div className="rg-art-glow" aria-hidden="true"/>
+          <article className="rg-hero-art">
+            {featured && featuredListing
+              ? <Link className="rg-hero-art-image" to={pathOf(featuredListing)}><SignedImage path={featured.image_path} alt={featured.title}/></Link>
+              : <img className="rg-hero-art-image" src="/art/revlord-world.jpg" alt={t('Ilustracija digitalnog sveta RevLord Group','RevLord Group digital world illustration')} />}
+            <div className="rg-art-top"><span className="rg-art-status"><i/> {t('KREATIVNOST BEZ GRANICA','CREATE WITHOUT LIMITS')}</span><span className="rg-art-index">RG / 01</span></div>
+            <div className="rg-art-caption"><span>{featuredListing ? t('IZ ISTAKNUTOG PORTFOLIJA','FEATURED PORTFOLIO') : 'REVLORD GROUP / DIGITAL SERVICES'}</span>
+              <h2>{featured && featuredListing ? featured.title : t('Poveži ideju sa talentom.','Connect ideas with talent.')}</h2>
+              <p>{featuredListing ? featuredListing.specialty : t('Gaming • Razvoj • Dizajn • Digitalne usluge','Gaming • Development • Design • Digital services')}</p>
+            </div>
+          </article>
+          <div className="rg-art-stamp" aria-hidden="true"><Icon name="sparkles" size={24}/><span>BUILD<br/>CREATE<br/>CONNECT</span></div>
         </div>
-        {!q.data ? <Wait error={q.error} /> : q.data.list.length ? <Cards data={q.data} items={q.data.list.slice(0, 3)} /> : <Empty project={!!i} />}
+      </div>
+      <div className="wrap rg-hero-underbar"><span><Icon name="check" size={16}/>{t('Direktna komunikacija','Direct messaging')}</span><span><Icon name="check" size={16}/>{t('Portfolio i specijalizacije','Portfolios & specialties')}</span><span><Icon name="check" size={16}/>{t('Oglasi za poslove i usluge','Jobs & services in one place')}</span></div>
+    </section>
+
+    <section className="wrap rg-discover" id="disciplines">
+      <div className="rg-section-heading"><div><p className="rg-section-eyebrow">01 / {t('ISTRAŽI OBLASTI','EXPLORE DISCIPLINES')}</p><h2>{t('Sve što ti treba,','Whatever you need,')}<br/><span>{t('na jednom mestu.','all in one place.')}</span></h2></div><Link className="rg-section-all" to="/services">{t('Sve kategorije','All categories')} <Icon name="arrow-up-right" size={18}/></Link></div>
+      {!hierarchy.data ? <Wait error={hierarchy.error} /> : roots.length ? <div className="rg-discipline-grid">{roots.map((node, index) => <Link key={node.id} to={'/services?cat=' + encodeURIComponent(node.id)} className={'rg-discipline-card rg-discipline-'+node.id}>
+        <span className="rg-disc-head"><span className="rg-disc-icon"><Icon name={node.icon} size={24}/></span><small>{String(index+1).padStart(2,'0')}</small></span>
+        <strong>{categoryTitle(node,lang)}</strong><span className="rg-disc-footer"><span>{counts(node.id)} {t('specijalizacija','specialties')}</span><Icon name="arrow-up-right" size={18}/></span>
+      </Link>)}</div> : <p className="empty">{t('Trenutno nema kategorija.','No categories are available yet.')}</p>}
+    </section>
+
+    <section className="rg-how-band" id="about"><div className="wrap">
+      <div className="rg-section-heading"><div><p className="rg-section-eyebrow">02 / {t('KAKO FUNKCIONIŠE','HOW IT WORKS')}</p><h2>{t('Jednostavno od početka','Simple from the start')}<br/><span>{t('do dogovora.','to the final agreement.')}</span></h2></div><p className="rg-section-description">{t('Bilo da tražiš nekoga za projekat ili želiš nove klijente, ovde počinje saradnja.','Whether you need someone for a project or want to find new clients, collaboration starts here.')}</p></div>
+      <div className="rg-steps">
+        <article><span className="rg-step-number">01</span><span className="rg-step-icon"><Icon name="search" size={25}/></span><h3>{t('Pronađi ili objavi','Explore or post')}</h3><p>{t('Pregledaj specijalizacije ili objavi posao sa jasnim opisom.','Browse specialties or publish a job with a clear brief.')}</p></article>
+        <article><span className="rg-step-number">02</span><span className="rg-step-icon"><Icon name="mail" size={25}/></span><h3>{t('Razgovaraj direktno','Connect directly')}</h3><p>{t('Postavi pitanja i dogovori detalje sa drugom stranom u porukama.','Ask questions and agree on details through on-site messages.')}</p></article>
+        <article><span className="rg-step-number">03</span><span className="rg-step-icon"><Icon name="sparkles" size={25}/></span><h3>{t('Pokreni saradnju','Make it happen')}</h3><p>{t('Pregledaj portfolio, dogovori obim posla i kreni sa projektom.','Review portfolios, agree on the scope, and get started.')}</p></article>
+      </div>
+    </div></section>
+
+    <div className="wrap rg-home-listings">
+      {[s,p].map((query,i) => <section className="rg-listings-band" key={i}>
+        <div className="rg-section-heading"><div><p className="rg-section-eyebrow">0{i+3} / {i ? t('PRILIKE ZA RAD','OPEN OPPORTUNITIES') : t('ISTRAŽI RADOVE','DISCOVER TALENT')}</p><h2>{i ? t('Otvoreni poslovi','Jobs to explore') : t('Usluge i portfoliji','Services & portfolios')}</h2></div><Link className="rg-section-all" to={i ? '/projects' : '/services'}>{t('Pogledaj sve','View all')} <Icon name="arrow-up-right" size={18}/></Link></div>
+        {!query.data ? <Wait error={query.error}/> : query.data.list.length ? <Cards data={query.data} items={query.data.list.slice(0,3)}/> : <Empty project={!!i}/>}
       </section>)}
-      <section className="about band" id="about">
-        <h2>{t('O nama', 'About us')}</h2>
-        <div>
-          <p>{t('Revlord Group povezuje ljude kojima treba digitalni rad sa ljudima koji ga stvaraju.', 'Revlord Group connects people who need digital work with the people who create it.')}</p>
-          <p>{t('Izaberi stručnjaka na osnovu portfolija ili objavi opis projekta i uporedi prijave. Razgovor i dogovor o terminu ostaju uz oglas.', 'Choose a specialist through their portfolio or publish a brief and compare proposals. Conversations and bookings stay connected to the listing.')}</p>
-        </div>
-      </section>
     </div>
-  </>;
+    <section className="wrap rg-final-cta"><div className="rg-final-orb" aria-hidden="true"/><p className="rg-section-eyebrow">REVLORD GROUP / {t('ZAPOČNI DANAS','GET STARTED')}</p><h2>{t('Sledeći veliki projekat','Your next big project')}<br/><span>{t('počinje ovde.','starts right here.')}</span></h2><p>{t('Postavi oglas za saradnju ili predstavi svoje veštine i portfolio.','Post a job or showcase your skills and portfolio.')}</p><div className="rg-final-actions"><Link className="primary" to="/new/project">{t('Napravi oglas za posao','Post a job')} <Icon name="arrow-up-right" size={17}/></Link><Link className="rg-outline-cta" to="/new/service">{t('Ponudi svoje veštine','Offer your skills')}</Link></div></section>
+  </div>;
 }
 export function Browse({kind}: {kind: 'service' | 'project'}) {
   const { url, t, go, lang } = useSite();
@@ -169,11 +170,18 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
   const data = useData(() => catalog(kind), 'catalog-' + kind);
   const hierarchy = useCategories();
   const nodes = hierarchy.data || [];
+  const [categorySearch, setCategorySearch] = useState('');
+  const [draftMin, setDraftMin] = useState(q.get('min') || '');
+  const [draftMax, setDraftMax] = useState(q.get('max') || '');
+  useEffect(() => {setCategorySearch('');}, [q.get('cat')]);
+  useEffect(() => {setDraftMin(q.get('min') || '');setDraftMax(q.get('max') || '');}, [q.get('min'),q.get('max')]);
   const selected = q.get('cat') || q.get('category') || '';
   const current = nodes.find(n => n.id === selected);
   const ancestors = selected ? categoryParents(nodes, selected) : [];
   const children = nodes.filter(n => n.active && n.parent_id === (selected || null))
     .sort((a,b) => a.sort_order-b.sort_order || a.name_sr.localeCompare(b.name_sr));
+  const visibleChildren = children.filter(n => normalize(n.name_sr + ' ' + n.name_en).includes(normalize(categorySearch)));
+  const filterCount = ['cat','q','min','max','currency','type','free'].filter(key => q.has(key)).length;
   const legacyRoot = (c: string) => c === 'web' || c === 'scripting' ? 'development' : c;
   function filter(k: string, v: string) {
     const next = new URLSearchParams(q);
@@ -204,34 +212,51 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
       && (!numericMax || l.price !== null && l.price <= numericMax)
       && (!q.has('free') || data.data?.slots.some(slot => slot.owner_id === l.owner_id && Date.parse(slot.starts_at) > Date.now()));
   }).sort((a,b) => q.get('sort') === 'oldest' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at));
-  return <section className="wrap page browse-page">
-    <p className="eyebrow">REVLORD / {kind === 'service' ? t('Usluge','Services') : t('Projekti','Projects')}</p>
-    <h1>{kind === 'service' ? t('Pronađi stručnjaka','Find talent') : t('Otvoreni projekti','Open projects')}</h1>
-    <div className="browse-disciplines">
-      <div className="section-title"><h2>{t('Istraži po oblastima','Explore by discipline')}</h2>
-      {selected && <button className="secondary" onClick={() => filter('cat', ancestors.at(-2) || '')}>← {t('Nazad','Back')}</button>}</div>
-      {selected && <div className="breadcrumbs"><button onClick={() => filter('cat','')}>{t('Sve oblasti','All categories')}</button>{ancestors.map(id => <React.Fragment key={id}><span> / </span><button aria-current={id===selected ? 'page' : undefined} onClick={() => filter('cat',id)}>{categoryTitle(nodes.find(n=>n.id===id),lang)}</button></React.Fragment>)}</div>}
+  const reset = () => go(url.pathname);
+  const applyBudget = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const params = new URLSearchParams(q);
+    if (draftMin && Number(draftMin) >= 0) params.set('min',draftMin); else params.delete('min');
+    if (draftMax && Number(draftMax) >= 0) params.set('max',draftMax); else params.delete('max');
+    go(url.pathname + (params.size?'?'+params:''));
+  };
+  return <section className="wrap page browse-page rg-browse">
+    <div className="rg-browse-head"><div><p className="rg-section-eyebrow">REVLORD / {kind === 'service' ? t('STRUČNJACI','TALENT') : t('PROJEKTI','PROJECTS')}</p>
+      <h1>{kind === 'service' ? t('Pronađi pravog stručnjaka','Find your next specialist') : t('Poslovi koji čekaju tebe','Find your next project')}</h1>
+      <p>{kind === 'service' ? t('Odaberi oblast, pronađi talenat i dogovori saradnju direktno.','Choose a discipline, find talent and get in touch directly.') : t('Pronađi projekte koji odgovaraju tvojim veštinama.','Find projects that match your skills.')}</p></div>
+      <div className="rg-browse-mode"><Link to="/services" className={kind==='service'?'is-active':''}><Icon name="sparkles" size={17}/>{t('Usluge','Services')}</Link><Link to="/projects" className={kind==='project'?'is-active':''}><Icon name="briefcase" size={17}/>{t('Poslovi','Jobs')}</Link></div>
+    </div>
+    <div className="browse-disciplines rg-browse-categories">
+      <div className="section-title"><div><p className="rg-section-eyebrow">01 / {t('KATEGORIJE','CATEGORIES')}</p><h2>{selected ? categoryTitle(current,lang) : t('Istraži po oblastima','Explore by discipline')}</h2>
+        <small>{selected ? t('Izaberi užu specijalizaciju ili pogledaj oglase ispod.','Choose a specialty or browse matching listings below.') : t('Odaberi oblast da suziš rezultate.','Choose a discipline to narrow the results.')}</small></div>
+      {selected && <button className="rg-category-back" onClick={() => filter('cat', ancestors.at(-2) || '')}><Icon name="chevron" size={17}/> {t('Korak nazad','Go back')}</button>}</div>
+      {selected && <div className="breadcrumbs"><button onClick={() => filter('cat','')}>{t('Sve oblasti','All disciplines')}</button>{ancestors.map(id => <React.Fragment key={id}><Icon name="chevron" size={13}/><button aria-current={id===selected ? 'page' : undefined} onClick={() => filter('cat',id)}>{categoryTitle(nodes.find(n=>n.id===id),lang)}</button></React.Fragment>)}</div>}
       {!hierarchy.data ? <Wait error={hierarchy.error}/> : <>
-        <div className="category-step-grid">{children.map(node => <button key={node.id} className="category-step" onClick={() => filter('cat',node.id)}><Icon name={node.icon} size={20}/><span>{categoryTitle(node,lang)}</span><Icon name="chevron" size={16}/></button>)}</div>
-        {!children.length && selected && <p className="meta">{categoryTitle(current,lang)}</p>}
+        {children.length>9 && <label className="rg-category-search"><Icon name="search" size={18}/><input value={categorySearch} onChange={e=>setCategorySearch(e.target.value)} placeholder={t('Pretraži specijalizacije…','Search specialties…')} aria-label={t('Pretraži specijalizacije','Search specialties')}/></label>}
+        <div className="category-step-grid">{visibleChildren.map(node => <button key={node.id} className="category-step" onClick={() => filter('cat',node.id)}><span className="rg-step-icon-mini"><Icon name={node.icon} size={20}/></span><span>{categoryTitle(node,lang)}</span><Icon name="chevron" size={16}/></button>)}</div>
+        {!visibleChildren.length && children.length>0 && <p className="empty">{t('Nema kategorija za ovu pretragu.','No specialties match this search.')}</p>}
+        {!children.length && selected && <p className="rg-category-end"><Icon name="check" size={17}/>{t('Specijalizacija je izabrana — rezultati su ispod.','Specialty selected — see results below.')}</p>}
       </>}
     </div>
-    <Search value={q.get('q') || ''} search={v => filter('q',v)} />
-    <details className="filters-drawer" open={undefined}><summary><Icon name="sliders" size={17}/>{t('Filteri i sortiranje','Filters and sorting')}</summary>
-      <div className="filters">
-        <label>{t('Min. budžet','Min. budget')}<input type="number" min="0" value={q.get('min') || ''} onChange={e => filter('min',e.target.value)} /></label>
-        <label>{t('Maks. budžet','Max. budget')}<input type="number" min="0" value={q.get('max') || ''} onChange={e => filter('max',e.target.value)} /></label>
-        <label>{t('Valuta','Currency')}<select value={q.get('currency') || ''} onChange={e => filter('currency',e.target.value)}><option value="">{t('Sve valute','All currencies')}</option>{['EUR','USD','RSD','GBP'].map(c => <option key={c}>{c}</option>)}</select></label>
-        <label>{t('Tip posla','Job type')}<select value={q.get('type') || ''} onChange={e => filter('type',e.target.value)}><option value="">{t('Svi tipovi','All types')}</option>{[['fixed','Fiksni budžet','Fixed'],['hourly','Po satu','Hourly'],['oneoff','Jednokratno','One-off'],['ongoing','Dugoročno','Ongoing']].map(([v,sr,en]) => <option key={v} value={v}>{t(sr,en)}</option>)}</select></label>
-        <label>{t('Sortiranje','Sort by')}<select value={q.get('sort') || 'newest'} onChange={e => filter('sort',e.target.value)}><option value="newest">{t('Najnoviji','Newest first')}</option><option value="oldest">{t('Najstariji','Oldest first')}</option></select></label>
-        {kind === 'service' && <label className="check"><input type="checkbox" checked={q.has('free')} onChange={e => filter('free',e.target.checked ? '1':'')}/>{t('Slobodan termin','Available time')}</label>}
-      </div>
-    </details>
-    {q.size > 0 && <button className="text-link clear-filters" onClick={() => go(url.pathname)}>{t('Resetuj sve filtere','Reset all filters')}</button>}
-    {!data.data ? <Wait error={data.error}/> : <>
-      <p className="result-bar">{t('Pronađeno oglasa','Listings found')}: <b>{list.length}</b></p>
-      {list.length ? <Cards data={data.data} items={list}/> : q.size ? <p className="empty">{t('Nema oglasa za izabrane filtere. Probaj drugu oblast ili resetuj filtere.','No matching listings. Try another category or reset filters.')}</p> : <Empty project={kind==='project'}/>}
-    </>}
+    <div className="rg-search-filters"><Search value={q.get('q') || ''} search={v => filter('q',v)}/>
+      <details className="filters-drawer rg-filter-drawer"><summary><Icon name="sliders" size={19}/>{t('Napredni filteri','Advanced filters')}{filterCount>0 && <span className="rg-filter-count">{filterCount}</span>}<Icon name="down" size={18}/></summary>
+        <div className="rg-filter-content">
+          <form className="rg-budget-row" onSubmit={applyBudget}><label>{t('Budžet od','Budget from')}<input type="number" min="0" value={draftMin} onChange={e=>setDraftMin(e.target.value)} placeholder="0" /></label><label>{t('Budžet do','Budget up to')}<input type="number" min="0" value={draftMax} onChange={e=>setDraftMax(e.target.value)} placeholder="∞" /></label><button type="submit" className="secondary">{t('Primeni','Apply')}</button></form>
+          <div className="rg-filter-selects">
+            <label>{t('Valuta','Currency')}<select value={q.get('currency') || ''} onChange={e=>filter('currency',e.target.value)}><option value="">{t('Sve valute','All currencies')}</option>{['EUR','USD','RSD','GBP'].map(c=><option key={c}>{c}</option>)}</select></label>
+            <label>{t('Tip posla','Job type')}<select value={q.get('type') || ''} onChange={e=>filter('type',e.target.value)}><option value="">{t('Svi tipovi','All types')}</option>{[['fixed','Fiksni budžet','Fixed'],['hourly','Po satu','Hourly'],['oneoff','Jednokratno','One-off'],['ongoing','Dugoročno','Ongoing']].map(([v,sr,en])=><option key={v} value={v}>{t(sr,en)}</option>)}</select></label>
+            <label>{t('Sortiranje','Sort by')}<select value={q.get('sort') || 'newest'} onChange={e=>filter('sort',e.target.value)}><option value="newest">{t('Najnoviji','Newest first')}</option><option value="oldest">{t('Najstariji','Oldest first')}</option></select></label>
+          </div>
+          {kind==='service' && <label className="rg-filter-check"><input type="checkbox" checked={q.has('free')} onChange={e=>filter('free',e.target.checked?'1':'')}/>{t('Samo stručnjaci sa slobodnim terminima','Only specialists with available times')}</label>}
+          <button className="rg-filter-reset" type="button" onClick={reset}>{t('Resetuj sve filtere','Reset all filters')} ×</button>
+        </div>
+      </details>
+    </div>
+    <div className="rg-listings-results"><div className="rg-results-top"><span><Icon name="layers" size={18}/>{t('Pronađeno oglasa','Listings found')} <strong>{list.length}</strong></span>
+      {filterCount>0 && <button className="rg-results-reset" onClick={reset}>{t('Očisti pretragu','Clear filters')} ×</button>}</div>
+      <div className="rg-filter-chips">{Array.from(q.entries()).filter(([k])=>k!=='sort').map(([k,v]) => <button key={k} onClick={()=>filter(k,'')} aria-label={t('Ukloni filter ','Remove filter ') + k}>{k==='cat'?categoryTitle(current,lang):k==='q'?v:k==='currency'?v:k==='type'?v:k==='min'?t('Od ','From ')+v:k==='max'?t('Do ','To ')+v:t('Slobodni termini','Available times')} <span>×</span></button>)}</div>
+      {!data.data ? <Wait error={data.error}/> : list.length ? <Cards data={data.data} items={list}/> : <div className="rg-no-results"><Icon name="search" size={30}/><h3>{t('Nema oglasa za izabrane uslove','No listings found for these filters')}</h3><p>{t('Probaj drugu oblast ili resetuj filtere.','Try another category or clear your filters.')}</p><button className="secondary" onClick={reset}>{t('Resetuj filtere','Clear filters')}</button><Link to={kind==='service'?'/new/service':'/new/project'} className="text-link">{kind==='service'?t('Ponudi svoje veštine','Offer your skills'):t('Objavi posao','Post a job')}</Link></div>}
+    </div>
   </section>;
 }
 function Gallery({
