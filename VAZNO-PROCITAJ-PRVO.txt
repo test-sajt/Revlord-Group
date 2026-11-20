@@ -1,0 +1,9 @@
+REVLORD GROUP — NOVI REDIZAJN 20.11.2026.
+
+1. Otvori REDIZAJN-2026-11-20-KORACI-ZA-OBJAVU.md — to je glavno uputstvo.
+2. Nemoj ponovo pokretati već primenjene stare Supabase migracije. Nova migracija je supabase/migrations/20261120_reviews_and_push.sql.
+3. Pre objavljivanja napravi backup, proveri npm ci i npm run build, uradi test sa dva naloga.
+4. Za poruke kada je sajt zatvoren aktiviraj Web Push Edge Function + webhook i VAPID ključeve po uputstvu.
+5. Originalni oglasi, nalozi i poruke nisu brisani u ovoj kopiji koda. Produkcioni sajt nije menjan.
+
+Nema potrebe da postavljaš privatne ključeve u javni kod.
