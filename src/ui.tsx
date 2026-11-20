@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { CategoryNode, Lang, Profile, Tables, Thread, User } from './types';
 import * as db from './db';
+import { Icon } from './icons';
 import { categories } from './data';
 export type T = (sr: string, en: string) => string;
 type Context = {
@@ -41,6 +42,11 @@ export function Link({
 }
 export function explain(e: unknown, t: T) {
   const raw = e instanceof Error ? e.message : String(e);
+  if (/OWN_REVIEW_FORBIDDEN/.test(raw)) return t('Ne možeš oceniti svoj profil ili oglas.','You cannot rate your own profile or listing.');
+  if (/REVIEW_SLOW_DOWN/.test(raw)) return t('Sačekaj 15 sekundi pre ponovnog uređivanja ocene.','Please wait 15 seconds before editing again.');
+  if (/INVALID_REVIEW/.test(raw)) return t('Izaberi 1–5 zvezdica i napiši komentar od najmanje 5 karaktera.','Choose 1–5 stars and write at least 5 characters.');
+  if (/NOTIFICATIONS_DENIED/.test(raw)) return t('Obaveštenja nisu dozvoljena. Uključi ih u podešavanjima pregledača.','Notifications are blocked. Enable them in browser settings.');
+  if (/NOTIFICATIONS_UNSUPPORTED|PUSH_UNSUPPORTED/.test(raw)) return t('Ovaj pregledač ne podržava obaveštenja u ovoj verziji sajta.','Notifications are unavailable in this browser.');
   if (/SLOT_UNAVAILABLE/.test(raw)) return t('Termin više nije dostupan. Izaberi sledeći slobodan termin.', 'This time is unavailable. Choose another available time.');
   if (/CONFIG/.test(raw)) return t('Platforma čeka povezivanje sa bazom. Vlasnik treba da podesi Supabase prema uputstvu POKRETANJE.md.', 'The platform is waiting for its database connection. The owner needs to configure Supabase.');
   if (/IMAGE/.test(raw)) return t('Koristi JPG, PNG ili WebP. Najviše 4 MB za rad i 2 MB za avatar.', 'Use JPG, PNG or WebP. Maximum 4 MB for artwork and 2 MB for avatars.');
@@ -287,7 +293,7 @@ export function ChatButton({
       listing,
       peer: peer || null
     }));
-  }}>{ctx.t('Poruka', 'Message')}</Task>;
+  }}><Icon name="chat" size={17}/>{ctx.t('Poruka', 'Message')}</Task>;
 }
 export function ReportForm({
   thread,

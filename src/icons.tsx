@@ -1,5 +1,9 @@
 import React from "react";
 const shapes: Record<string, React.ReactNode> = {
+  chat: <><path d="M20 11.5a8 8 0 0 1-8 8 10 10 0 0 1-3-.45L4 21l1.4-4.3A8 8 0 1 1 20 11.5Z"/></>,
+  bell: <><path d="M18 8a6 6 0 0 0-12 0c0 8-3 9-3 10h18c0-1-3-2-3-10M10 21h4"/></>,
+  star: <path d="m12 2.9 2.8 5.65 6.25.91-4.53 4.42 1.07 6.23L12 17.17l-5.59 2.94 1.07-6.23L2.95 9.46l6.25-.91z"/>,
+  back: <path d="m15 18-6-6 6-6M9 12h12"/>,
   home: <><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></>,
   briefcase: <><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></>,
   sparkles: <><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5z"/><path d="M19 2v4m-2-2h4M4 19v3m-1.5-1.5h3"/></>,

@@ -1,0 +1,14 @@
+{
+  "name": "RevLord Group — Digital Services",
+  "short_name": "RevLord",
+  "description": "Pronađi developere, usluge i otvorene poslove.",
+  "id": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07150e",
+  "theme_color": "#07150e",
+  "icons": [
+    {"src":"/icons/revlord-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icons/revlord-512.png","sizes":"512x512","type":"image/png","purpose":"any"}
+  ]
+}

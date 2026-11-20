@@ -28,7 +28,8 @@ export function LogoHeader() {
     { to:'/', icon:'home', label:t('Početna','Home'), featured:false },
     { to:'/new/project', icon:'briefcase', label:t('Napravi oglas za posao','Post a job'), featured:false },
     { to:'/new/service', icon:'sparkles', label:t('Ponudi svoje veštine','Offer your skills'), featured:false },
-    { to:'/services', icon:'search', label:t('Pretraži oglase','Browse listings'), featured:true },
+    { to:'/services', icon:'search', label:t('Pronađi stručnjaka','Find talent'), featured:true },
+    { to:'/projects', icon:'briefcase', label:t('Pronađi posao','Find jobs'), featured:false },
     { to:user && me ? '/talent/' + me.id : '/login', icon:'user', label:t('Moj profil','My profile'), featured:false },
   ];
   const active = (to:string) => to === '/' ? url.pathname === '/' : (url.pathname === to || (to === '/services' && url.pathname.startsWith('/services')));

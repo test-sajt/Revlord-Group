@@ -63,6 +63,7 @@ export async function email(mode, email, password) {
   }));
 }
 export async function logout() {
+  await disableNotifications().catch(() => {});
   checked(await api().auth.signOut());
 }
 // Svako čitanje ide u bazu. Paginacija obuhvata i kataloge sa više od hiljadu zapisa.
@@ -73,7 +74,7 @@ export async function rows(table, filters = {}, columns = '*', order = 'id') {
     let q = api().from(table).select(columns);
     for (const [key, value] of Object.entries(filters)) q = q.eq(key, value);
     q = q.order(order);
-    if (order !== 'id' && table !== 'admins') q = q.order('id');
+    if (order !== 'id' && !['admins','listing_review_stats','profile_review_stats'].includes(table)) q = q.order('id');
     let page = checked(await q.range(start, start + size - 1));
     result.push(...page);
     if (page.length < size) return result;
@@ -161,8 +162,8 @@ export async function chatHistory(thread) {
 export function markRead(thread) { return rpc('mark_thread_read', {thread}); }
 export function listenInbox(refresh) {
   const channel = api().channel('inbox-' + crypto.randomUUID())
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, refresh)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'threads' }, refresh)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => refresh(payload))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'threads' }, payload => refresh(payload))
     .subscribe();
   return () => { api().removeChannel(channel); };
 }
@@ -177,4 +178,68 @@ export function listen(thread, refresh) {
   return () => {
     api().removeChannel(c);
   };
+}
+
+// Permissions are requested only after a user clicks "Enable notifications".
+const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+export const pushConfigured = Boolean(vapidPublicKey);
+function applicationServerKey(value) {
+  const padded = (value.replace(/-/g, '+').replace(/_/g, '/') + '====').slice(0, value.length + (4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+}
+export function canNotify() {
+  return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && window.isSecureContext;
+}
+export async function enableNotifications(userId) {
+  if (!canNotify()) throw Error('NOTIFICATIONS_UNSUPPORTED');
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') throw Error('NOTIFICATIONS_DENIED');
+  localStorage.removeItem('rg-notifications-optout');
+  const registration = await navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.ready;
+  if (!vapidPublicKey) return 'local';
+  if (!registration.pushManager) throw Error('PUSH_UNSUPPORTED');
+  let subscription = await registration.pushManager.getSubscription();
+  if (subscription) {
+    // If the browser has changed accounts, never attach the old push endpoint to a new user.
+    const own = checked(await api().from('push_subscriptions').select('id').eq('endpoint',subscription.endpoint));
+    if (!own?.length) { await subscription.unsubscribe(); subscription=null; }
+  }
+  if (!subscription) subscription = await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:applicationServerKey(vapidPublicKey)});
+  const json=subscription.toJSON();
+  const keys=json.keys || {};
+  if (!json.endpoint || !keys.p256dh || !keys.auth) throw Error('PUSH_SUBSCRIPTION_FAILED');
+  const prior=checked(await api().from('push_subscriptions').select('id').eq('endpoint',json.endpoint));
+  if (!prior?.length) checked(await api().from('push_subscriptions').insert({user_id:userId,endpoint:json.endpoint,p256dh:keys.p256dh,auth_key:keys.auth}));
+  return 'push';
+}
+export async function notificationsEnabled() {
+  if (localStorage.getItem('rg-notifications-optout')==='true') return false;
+  if (!canNotify() || Notification.permission!=='granted') return false;
+  if (!vapidPublicKey) return false;
+  const reg=await navigator.serviceWorker.getRegistration('/');
+  if (!reg) return false;
+  const sub=await reg.pushManager.getSubscription();
+  if (!sub) return false;
+  const own=checked(await api().from('push_subscriptions').select('id').eq('endpoint',sub.endpoint));
+  return Boolean(own?.length);
+}
+export async function disableNotifications() {
+  localStorage.setItem('rg-notifications-optout','true');
+  if (!canNotify()) return;
+  const reg=await navigator.serviceWorker.getRegistration('/');
+  const sub=await reg?.pushManager?.getSubscription();
+  if(sub) {
+    if(client) checked(await client.from('push_subscriptions').delete().eq('endpoint',sub.endpoint));
+    await sub.unsubscribe();
+  }
+}
+export async function showInTabNotification(threadId) {
+  if (localStorage.getItem('rg-notifications-optout')==='true') return;
+  if (!canNotify() || Notification.permission !== 'granted') return;
+  const registration=await navigator.serviceWorker.register('/sw.js');
+  await registration.showNotification('Nova poruka Revlord-Group',{
+    body:'Imaš novu poruku na RevLord platformi.', icon:'/icons/revlord-192.png',
+    tag:'rg-new-message-'+threadId, data:{url:'/?thread='+encodeURIComponent(threadId)}
+  });
 }

@@ -125,6 +125,12 @@ export function App({
     if (url.hash === '#about') requestAnimationFrame(() => document.getElementById('about')?.scrollIntoView());else window.scrollTo(0, 0);
   }, [url.pathname, url.hash]);
   useEffect(() => {
+    const requested=url.searchParams.get('thread');
+    if(!requested || !/^[a-f0-9-]{36}$/i.test(requested)) return;
+    if(user)setChat(requested);
+    else if(ready){sessionStorage.setItem('rg-return','/?thread='+encodeURIComponent(requested));navigate('/login');}
+  },[url.search,user?.id,ready]);
+  useEffect(() => {
     document.title = (document.querySelector('h1')?.textContent?.trim() || 'Revlord Group') + ' | Digital Services';
   }, [url, lang, me]);
   const ctx = {
@@ -160,3 +166,4 @@ export function App({
 }
 import './workspace.css';
 import './revamp.css';
+import './revlord-20261120.css';

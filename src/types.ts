@@ -65,6 +65,12 @@ export type PortfolioProject = {
   project_url: string;
   created_at: string;
 };
+export type Review = {
+  id: string; reviewer_id: string; listing_id: string | null; profile_id: string | null;
+  rating: number; body: string; created_at: string; updated_at: string;
+};
+export type ReviewStat = { listing_id?: string; profile_id?: string; review_count: number; rating_avg: number; rank_score?: number; };
+export type PushSubscription = {id:string; user_id:string; endpoint:string; p256dh:string; auth_key:string; created_at:string;};
 export type InboxItem = {
   thread_id: string;
   listing_id: string;
@@ -130,6 +136,10 @@ export type Report = {
 };
 export type Tables = {
   profiles: Profile;
+  reviews: Review;
+  listing_review_stats: ReviewStat;
+  profile_review_stats: ReviewStat;
+  push_subscriptions: PushSubscription;
   categories: CategoryNode;
   listing_images: ListingImage;
   portfolio_projects: PortfolioProject;

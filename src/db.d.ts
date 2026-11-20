@@ -24,3 +24,10 @@ export function mediaUrl(bucket:string,path:string):Promise<string>;
 
 export function chatHistory(thread:string):Promise<Message[]>;
 export function deleteChatForMe(thread:string):Promise<void>;
+
+export const pushConfigured:boolean;
+export function canNotify():boolean;
+export function enableNotifications(userId:string):Promise<'local'|'push'>;
+export function disableNotifications():Promise<void>;
+export function notificationsEnabled():Promise<boolean>;
+export function showInTabNotification(threadId:string):Promise<void>;

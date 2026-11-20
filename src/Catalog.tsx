@@ -1,26 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as db from './db';
 import { categories, normalize, safeLink, videoEmbed } from './data';
-import type { CategoryNode, Listing, ListingImage, Profile, Work } from './types';
+import type { CategoryNode, Listing, ListingImage, Profile, ReviewStat, Work } from './types';
+import { RatingSummary, Reviews } from './Reviews';
 import { Icon } from './icons';
 import { Avatar, catName, categoryParents, categoryTitle, ChatButton, cost, field, Field, Form, Link, needLogin, ReportForm, SignedImage, Task, useCategories, useData, useSite, Wait, when } from './ui';
 export const pathOf = (l: Listing) => (l.kind === 'project' ? '/projects/' : '/services/') + l.id;
 // Naslovna, pretraga i portfolio čitaju zapise koje je baza dozvolila trenutnom posetiocu.
 async function catalog(kind: 'service' | 'project') {
-  const [list, people, works, slots, images] = await Promise.all([db.rows('listings', {
-    kind,
-    status: 'published'
-  }), db.rows('profiles'), db.rows('works'), db.rows('slots', {
-    booked: false
-  }), db.rows('listing_images')]);
-  return {
-    list: list.sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    people,
-    works: works.sort((a, b) => a.position - b.position),
-    slots,
-    images
-  };
+  const [list, people, works, slots, images, stats] = await Promise.all([
+    db.rows('listings', {kind,status:'published'}),
+    db.rows('profiles'), db.rows('works'), db.rows('slots', {booked:false}),
+    db.rows('listing_images'),
+    // The old catalog remains usable until the additive 20261120 SQL migration is run.
+    db.rows('listing_review_stats',{},'*','listing_id').catch(() => [] as ReviewStat[])
+  ]);
+  return {list:list.sort((a,b)=>b.created_at.localeCompare(a.created_at)),people,
+    works:works.sort((a,b)=>a.position-b.position),slots,images,stats};
 }
+
+function rankedListings(items:Listing[],stats:ReviewStat[]) {
+  const scores=new Map(stats.map(st=>[st.listing_id,st]));
+  return [...items].sort((a,b)=>{
+    const sa=scores.get(a.id),sb=scores.get(b.id);
+    if(Boolean(sa)!==Boolean(sb))return sb?1:-1;
+    const delta=Number(sb?.rank_score||0)-Number(sa?.rank_score||0);
+    return Math.abs(delta)>0.00001?delta:b.created_at.localeCompare(a.created_at);
+  });
+}
+
 function Search({
   value = '',
   search
@@ -42,45 +50,29 @@ function Search({
     <button className="primary">{t('Pretraži', 'Search')}</button>
   </form>;
 }
-function Card({
-  l,
-  p,
-  w,
-  image
-}: {
-  l: Listing;
-  p?: Profile;
-  w?: Work;
-  image?: ListingImage;
-}) {
-  const {
-    t
-  } = useSite();
-  return <article className="card">
-    <Link className="thumbnail" to={pathOf(l)}>{image?.image_path ? <SignedImage path={image.image_path} bucket="listing-images" alt={l.title} /> : w?.image_path ? <SignedImage path={w.image_path} alt={w.title} /> : <span className="art-placeholder"><Icon name={categories.find(x => x[0] === l.category)?.[1] || 'folder'} size={52} /></span>}</Link>
-    <div className="card-copy">
-      <span className="meta">{catName(l.category, t)} · {l.specialty}</span>
-      <h3><Link to={pathOf(l)}>{l.title}</Link></h3>
-      <p>{l.body.slice(0, 155)}</p>
-      <div className="card-foot">
-        <Link className="credit" to={'/talent/' + l.owner_id}>
-          <Avatar p={p} />
-          {p?.name || t('Autor', 'Creator')}
-        </Link>
-        <b>{cost(l.price, t, l.currency)}</b>
-      </div>
+function Card({l,p,stat}:{l:Listing;p?:Profile;stat?:ReviewStat}) {
+  const {t,user}=useSite();
+  const skills=l.tags.split(',').map(x=>x.trim()).filter(Boolean).slice(0,5);
+  const isProject=l.kind==='project';
+  return <article className="card rgv-listing-card">
+    <div className="rgv-card-top"><span className="rgv-card-kind"><Icon name={isProject?'briefcase':'code'} size={14}/>{isProject?t('POSAO','JOB'):t('USLUGA','SERVICE')}</span>
+      <span className="rgv-card-category">{catName(l.category,t)}</span></div>
+    <div className="rgv-card-author"><Link to={'/talent/'+l.owner_id} className="rgv-author-link"><Avatar p={p}/><span><b>{p?.name||t('Korisnik','Member')}</b><small>{p?.specialty||l.specialty||t('Digitalne usluge','Digital services')}</small></span></Link><RatingSummary stat={stat}/></div>
+    <h3><Link to={pathOf(l)}>{l.title}</Link></h3>
+    <p className="rgv-card-description">{l.body.slice(0,165)}{l.body.length>165?'…':''}</p>
+    <div className="rgv-card-tags">{skills.length?skills.map(skill=><span key={skill}>{skill}</span>):<span>{l.specialty||catName(l.category,t)}</span>}</div>
+    <div className="rgv-card-meta"><span><Icon name={isProject?'clock':'check'} size={15}/>{isProject?(l.deadline?t('Rok','Due')+': '+l.deadline:t('Otvoren projekat','Open project')):p?.available?t('Dostupan','Available'):t('Kontakt preko platforme','Contact on platform')}</span><strong>{cost(l.price,t,l.currency)}{l.job_type==='hourly'&&<small> / {t('sat','hr')}</small>}</strong></div>
+    <div className="rgv-card-actions"><Link className="rgv-details-btn" to={pathOf(l)}>{t('Detaljnije','Details')}<Icon name="arrow-up-right" size={17}/></Link>
+      {user?.id===l.owner_id?<Link className="rgv-contact-link" to={'/edit/'+l.id}>{t('Uredi oglas','Edit listing')}<Icon name="chevron" size={17}/></Link>:isProject?<Link className="rgv-contact-link" to={pathOf(l)}>{t('Prijavi se','Apply')}<Icon name="chevron" size={17}/></Link>:<div className="rgv-card-chat"><ChatButton listing={l.id}/></div>}
     </div>
   </article>;
 }
-function Cards({
-  data,
-  items
-}: {
-  data: Awaited<ReturnType<typeof catalog>>;
-  items: Listing[];
-}) {
-  return <div className="cards">{items.map(l => <Card key={l.id} l={l} p={data.people.find(p => p.id === l.owner_id)} w={data.works.find(w => w.listing_id === l.id && w.image_path)} image={data.images.find(im => im.listing_id === l.id && im.is_cover) || data.images.find(im => im.listing_id === l.id)} />)}</div>;
+function Cards({data,items}:{data:Awaited<ReturnType<typeof catalog>>;items:Listing[]}) {
+  const stats=new Map(data.stats.map(st=>[st.listing_id,st]));
+  const people=new Map(data.people.map(person=>[person.id,person]));
+  return <div className="cards rgv-cards">{items.map(l=><Card key={l.id} l={l} p={people.get(l.owner_id)} stat={stats.get(l.id)}/>)}</div>;
 }
+
 function Empty({
   project = false
 }: {
@@ -96,15 +88,11 @@ function Empty({
   </div>;
 }
 export function Home() {
-  const { t, go, lang, user } = useSite();
+  const { t, go } = useSite();
   const hierarchy = useCategories();
-  const s = useData(() => catalog('service'), 'home-service');
   const p = useData(() => catalog('project'), 'home-project');
-  const featured = s.data?.works.find(w => w.image_path && s.data!.list.some(l => l.id === w.listing_id));
-  const featuredListing = s.data?.list.find(x => x.id === featured?.listing_id);
-  const roots = (hierarchy.data || []).filter(c => !c.parent_id && c.active)
-    .sort((a, b) => a.sort_order - b.sort_order);
-  const counts = (id:string) => (hierarchy.data || []).filter(node => node.active && node.id !== id && categoryParents(hierarchy.data || [], node.id).includes(id)).length;
+  const rootCount = (hierarchy.data || []).filter(c => !c.parent_id && c.active).length;
+  const specializations = (hierarchy.data || []).filter(c => !!c.parent_id && c.active).length;
   return <div className="rg-home">
     <section className="rg-hero-zone" aria-labelledby="rg-hero-title">
       <div className="rg-hero-grid" aria-hidden="true" />
@@ -115,35 +103,31 @@ export function Home() {
           <p className="rg-hero-lead">{t('Pronađi developere, dizajnere i gaming kreatore. Ili pokaži svetu šta umeš — direktno, brzo i na jednom mestu.','Find developers, designers and gaming creators. Or show the world what you can do — directly, simply, in one place.')}</p>
           <div className="rg-hero-actions">
             <Link to="/services" className="primary rg-hero-main-cta">{t('Pronađi stručnjaka','Find a specialist')} <Icon name="arrow-up-right" size={18}/></Link>
-            <Link to="/new/service" className="rg-outline-cta">{t('Ponudi svoje veštine','Offer your skills')} <Icon name="chevron" size={16}/></Link>
+            <Link to="/projects" className="rg-outline-cta">{t('Pronađi posao','Find jobs')} <Icon name="chevron" size={16}/></Link>
           </div>
           <div className="rg-hero-search"><Search search={q => go('/services?q=' + encodeURIComponent(q))} /></div>
           <div className="rg-hero-tags"><small>{t('Popularne oblasti','Explore skills')}</small>{['Roblox','FiveM','React','Blender'].map(tag => <Link key={tag} to={'/services?q=' + encodeURIComponent(tag)}>{tag} <span>↗</span></Link>)}</div>
         </div>
         <div className="rg-hero-art-wrap">
           <div className="rg-art-glow" aria-hidden="true"/>
-          <article className="rg-hero-art">
-            {featured && featuredListing
-              ? <Link className="rg-hero-art-image" to={pathOf(featuredListing)}><SignedImage path={featured.image_path} alt={featured.title}/></Link>
-              : <img className="rg-hero-art-image" src="/art/revlord-world.jpg" alt={t('Ilustracija digitalnog sveta RevLord Group','RevLord Group digital world illustration')} />}
-            <div className="rg-art-top"><span className="rg-art-status"><i/> {t('KREATIVNOST BEZ GRANICA','CREATE WITHOUT LIMITS')}</span><span className="rg-art-index">RG / 01</span></div>
-            <div className="rg-art-caption"><span>{featuredListing ? t('IZ ISTAKNUTOG PORTFOLIJA','FEATURED PORTFOLIO') : 'REVLORD GROUP / DIGITAL SERVICES'}</span>
-              <h2>{featured && featuredListing ? featured.title : t('Poveži ideju sa talentom.','Connect ideas with talent.')}</h2>
-              <p>{featuredListing ? featuredListing.specialty : t('Gaming • Razvoj • Dizajn • Digitalne usluge','Gaming • Development • Design • Digital services')}</p>
-            </div>
+          <article className="rg-hero-art rgv-brand-showcase">
+            <img className="rg-hero-art-image" src="/art/revlord-group-banner.jpg" width="720" height="405" loading="eager" alt={t('RevLord Group — originalni logo i zeleni futuristički grad, Build Create Grow','RevLord Group — complete original branded banner, Build Create Grow')} />
+            <div className="rgv-brand-foot"><div><span className="rgv-brand-live"/> REVLORD GROUP <strong>/ DIGITAL SERVICES</strong></div><span>{t('Tvoj sledeći projekat počinje ovde.','Your next project starts here.')}</span></div>
           </article>
-          <div className="rg-art-stamp" aria-hidden="true"><Icon name="sparkles" size={24}/><span>BUILD<br/>CREATE<br/>CONNECT</span></div>
         </div>
       </div>
       <div className="wrap rg-hero-underbar"><span><Icon name="check" size={16}/>{t('Direktna komunikacija','Direct messaging')}</span><span><Icon name="check" size={16}/>{t('Portfolio i specijalizacije','Portfolios & specialties')}</span><span><Icon name="check" size={16}/>{t('Oglasi za poslove i usluge','Jobs & services in one place')}</span></div>
     </section>
 
-    <section className="wrap rg-discover" id="disciplines">
-      <div className="rg-section-heading"><div><p className="rg-section-eyebrow">01 / {t('ISTRAŽI OBLASTI','EXPLORE DISCIPLINES')}</p><h2>{t('Sve što ti treba,','Whatever you need,')}<br/><span>{t('na jednom mestu.','all in one place.')}</span></h2></div><Link className="rg-section-all" to="/services">{t('Sve kategorije','All categories')} <Icon name="arrow-up-right" size={18}/></Link></div>
-      {!hierarchy.data ? <Wait error={hierarchy.error} /> : roots.length ? <div className="rg-discipline-grid">{roots.map((node, index) => <Link key={node.id} to={'/services?cat=' + encodeURIComponent(node.id)} className={'rg-discipline-card rg-discipline-'+node.id}>
-        <span className="rg-disc-head"><span className="rg-disc-icon"><Icon name={node.icon} size={24}/></span><small>{String(index+1).padStart(2,'0')}</small></span>
-        <strong>{categoryTitle(node,lang)}</strong><span className="rg-disc-footer"><span>{counts(node.id)} {t('specijalizacija','specialties')}</span><Icon name="arrow-up-right" size={18}/></span>
-      </Link>)}</div> : <p className="empty">{t('Trenutno nema kategorija.','No categories are available yet.')}</p>}
+    <section className="wrap rg-discover rgv-home-discover" id="disciplines">
+      <div className="rgv-home-discover-copy"><p className="rg-section-eyebrow">01 / {t('ISTRAŽI OBLASTI','EXPLORE DISCIPLINES')}</p>
+        <h2>{t('Istraži veštine.','Explore skills.')}<br/><span>{t('Pronađi pravi oglas.','Find the right listing.')}</span></h2>
+        <p>{t('Bez nepregledne liste kategorija. Klikni i istraži sve oblasti, ili izaberi poslove.','No long category lists. Open all disciplines in a clean panel, or explore job opportunities.')}</p>
+        <div className="rgv-home-discover-actions"><Link to="/services?explore=1" className="rgv-open-categories"><Icon name="layers" size={20}/>{t('Istraži po oblastima','Explore disciplines')}<Icon name="chevron" size={18}/></Link>
+          <Link to="/projects?explore=1" className="rgv-home-jobs-link"><Icon name="briefcase" size={18}/>{t('Oblasti za poslove','Job disciplines')}<Icon name="arrow-up-right" size={17}/></Link></div>
+      </div>
+      <div className="rgv-home-discover-aside" aria-hidden="true"><Icon name="search" size={34}/><strong>{rootCount || '—'}</strong><span>{t('glavnih oblasti','main disciplines')}</span>
+      <div className="rgv-home-discover-divider"/><strong>{specializations || '—'}</strong><span>{t('specijalizacija','specialties')}</span></div>
     </section>
 
     <section className="rg-how-band" id="about"><div className="wrap">
@@ -155,12 +139,10 @@ export function Home() {
       </div>
     </div></section>
 
-    <div className="wrap rg-home-listings">
-      {[s,p].map((query,i) => <section className="rg-listings-band" key={i}>
-        <div className="rg-section-heading"><div><p className="rg-section-eyebrow">0{i+3} / {i ? t('PRILIKE ZA RAD','OPEN OPPORTUNITIES') : t('ISTRAŽI RADOVE','DISCOVER TALENT')}</p><h2>{i ? t('Otvoreni poslovi','Jobs to explore') : t('Usluge i portfoliji','Services & portfolios')}</h2></div><Link className="rg-section-all" to={i ? '/projects' : '/services'}>{t('Pogledaj sve','View all')} <Icon name="arrow-up-right" size={18}/></Link></div>
-        {!query.data ? <Wait error={query.error}/> : query.data.list.length ? <Cards data={query.data} items={query.data.list.slice(0,3)}/> : <Empty project={!!i}/>}
-      </section>)}
-    </div>
+    <div className="wrap rg-home-listings"><section className="rg-listings-band">
+      <div className="rg-section-heading"><div><p className="rg-section-eyebrow">03 / {t('PRILIKE ZA RAD','OPEN OPPORTUNITIES')}</p><h2>{t('Otvoreni poslovi','Jobs to explore')}</h2></div><Link className="rg-section-all" to="/projects">{t('Pogledaj sve','View all')} <Icon name="arrow-up-right" size={18}/></Link></div>
+      {!p.data?<Wait error={p.error}/>:p.data.list.length?<Cards data={p.data} items={rankedListings(p.data.list,p.data.stats).slice(0,3)}/>:<Empty project/>}
+    </section></div>
     <section className="wrap rg-final-cta"><div className="rg-final-orb" aria-hidden="true"/><p className="rg-section-eyebrow">REVLORD GROUP / {t('ZAPOČNI DANAS','GET STARTED')}</p><h2>{t('Sledeći veliki projekat','Your next big project')}<br/><span>{t('počinje ovde.','starts right here.')}</span></h2><p>{t('Postavi oglas za saradnju ili predstavi svoje veštine i portfolio.','Post a job or showcase your skills and portfolio.')}</p><div className="rg-final-actions"><Link className="primary" to="/new/project">{t('Napravi oglas za posao','Post a job')} <Icon name="arrow-up-right" size={17}/></Link><Link className="rg-outline-cta" to="/new/service">{t('Ponudi svoje veštine','Offer your skills')}</Link></div></section>
   </div>;
 }
@@ -171,6 +153,27 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
   const hierarchy = useCategories();
   const nodes = hierarchy.data || [];
   const [categorySearch, setCategorySearch] = useState('');
+  const [categoryOpen, setCategoryOpen] = useState(()=>url.searchParams.get('explore')==='1');
+  const categoryTriggerRef = useRef<HTMLButtonElement>(null);
+  const categoryCloseRef = useRef<HTMLButtonElement>(null);
+  const [budgetError,setBudgetError] = useState('');
+  useEffect(()=>{
+    if(!categoryOpen)return;
+    categoryCloseRef.current?.focus();
+    const onKey=(e:KeyboardEvent)=>{
+      if(e.key==='Escape'){setCategoryOpen(false);return;}
+      if(e.key!=='Tab')return;
+      const modal=document.getElementById('rgv-category-panel');
+      const controls=Array.from(modal?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled)')||[]);
+      if(!controls.length)return;
+      const first=controls[0],last=controls[controls.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    };
+    window.addEventListener('keydown',onKey);
+    document.body.classList.add('rgv-drawer-open');
+    return ()=>{window.removeEventListener('keydown',onKey);document.body.classList.remove('rgv-drawer-open');categoryTriggerRef.current?.focus();};
+  },[categoryOpen]);
   const [draftMin, setDraftMin] = useState(q.get('min') || '');
   const [draftMax, setDraftMax] = useState(q.get('max') || '');
   useEffect(() => {setCategorySearch('');}, [q.get('cat')]);
@@ -180,17 +183,19 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
   const ancestors = selected ? categoryParents(nodes, selected) : [];
   const children = nodes.filter(n => n.active && n.parent_id === (selected || null))
     .sort((a,b) => a.sort_order-b.sort_order || a.name_sr.localeCompare(b.name_sr));
-  const visibleChildren = children.filter(n => normalize(n.name_sr + ' ' + n.name_en).includes(normalize(categorySearch)));
+  const visibleChildren = (categorySearch.trim()?nodes.filter(n=>n.active):children).filter(n => normalize(n.name_sr + ' ' + n.name_en).includes(normalize(categorySearch))).slice(0,80);
   const filterCount = ['cat','q','min','max','currency','type','free'].filter(key => q.has(key)).length;
   const legacyRoot = (c: string) => c === 'web' || c === 'scripting' ? 'development' : c;
   function filter(k: string, v: string) {
     const next = new URLSearchParams(q);
+    next.delete('explore');
     if (v) next.set(k, v); else next.delete(k);
     if (k === 'cat') next.delete('category');
     go(url.pathname + (next.size ? '?' + next : ''));
   }
-  const numericMax = q.get('max') && Number(q.get('max'));
-  const numericMin = q.get('min') && Number(q.get('min'));
+  const numericMax = q.has('max') ? Number(q.get('max')) : null;
+  const numericMin = q.has('min') ? Number(q.get('min')) : null;
+  const stats = new Map((data.data?.stats || []).map(st=>[st.listing_id,st]));
   const list = (data.data?.list || []).filter(l => {
     const person = data.data?.people.find(x => x.id === l.owner_id);
     const search = normalize([l.title,l.body,l.tags,l.specialty,l.category,person?.name].join(' '));
@@ -208,14 +213,24 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
     return matchesNode && words.every(x => search.includes(x))
       && (!q.get('currency') || l.currency === q.get('currency'))
       && (!q.get('type') || l.job_type === q.get('type'))
-      && (!numericMin || l.price !== null && l.price >= numericMin)
-      && (!numericMax || l.price !== null && l.price <= numericMax)
+      && (numericMin === null || !q.get('currency') || (l.price !== null && l.price >= numericMin))
+      && (numericMax === null || !q.get('currency') || (l.price !== null && l.price <= numericMax))
       && (!q.has('free') || data.data?.slots.some(slot => slot.owner_id === l.owner_id && Date.parse(slot.starts_at) > Date.now()));
-  }).sort((a,b) => q.get('sort') === 'oldest' ? a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at));
+  }).sort((a,b) => {
+    if(q.get('sort')==='oldest')return a.created_at.localeCompare(b.created_at);
+    if(q.get('sort')==='newest')return b.created_at.localeCompare(a.created_at);
+    const sa=stats.get(a.id),sb=stats.get(b.id);
+    if(Boolean(sa)!==Boolean(sb))return sb?1:-1;
+    const diff=Number(sb?.rank_score||0)-Number(sa?.rank_score||0);
+    return Math.abs(diff)>0.00001?diff:b.created_at.localeCompare(a.created_at);
+  });
   const reset = () => go(url.pathname);
   const applyBudget = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const params = new URLSearchParams(q);
+    params.delete('explore');
+    if((draftMin||draftMax)&&!q.get('currency')){setBudgetError(t('Prvo izaberi valutu da bi poređenje cena bilo ispravno.','Choose a currency before comparing prices.'));return;}
+    setBudgetError('');
     if (draftMin && Number(draftMin) >= 0) params.set('min',draftMin); else params.delete('min');
     if (draftMax && Number(draftMax) >= 0) params.set('max',draftMax); else params.delete('max');
     go(url.pathname + (params.size?'?'+params:''));
@@ -226,26 +241,34 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
       <p>{kind === 'service' ? t('Odaberi oblast, pronađi talenat i dogovori saradnju direktno.','Choose a discipline, find talent and get in touch directly.') : t('Pronađi projekte koji odgovaraju tvojim veštinama.','Find projects that match your skills.')}</p></div>
       <div className="rg-browse-mode"><Link to="/services" className={kind==='service'?'is-active':''}><Icon name="sparkles" size={17}/>{t('Usluge','Services')}</Link><Link to="/projects" className={kind==='project'?'is-active':''}><Icon name="briefcase" size={17}/>{t('Poslovi','Jobs')}</Link></div>
     </div>
-    <div className="browse-disciplines rg-browse-categories">
-      <div className="section-title"><div><p className="rg-section-eyebrow">01 / {t('KATEGORIJE','CATEGORIES')}</p><h2>{selected ? categoryTitle(current,lang) : t('Istraži po oblastima','Explore by discipline')}</h2>
-        <small>{selected ? t('Izaberi užu specijalizaciju ili pogledaj oglase ispod.','Choose a specialty or browse matching listings below.') : t('Odaberi oblast da suziš rezultate.','Choose a discipline to narrow the results.')}</small></div>
-      {selected && <button className="rg-category-back" onClick={() => filter('cat', ancestors.at(-2) || '')}><Icon name="chevron" size={17}/> {t('Korak nazad','Go back')}</button>}</div>
-      {selected && <div className="breadcrumbs"><button onClick={() => filter('cat','')}>{t('Sve oblasti','All disciplines')}</button>{ancestors.map(id => <React.Fragment key={id}><Icon name="chevron" size={13}/><button aria-current={id===selected ? 'page' : undefined} onClick={() => filter('cat',id)}>{categoryTitle(nodes.find(n=>n.id===id),lang)}</button></React.Fragment>)}</div>}
-      {!hierarchy.data ? <Wait error={hierarchy.error}/> : <>
-        {children.length>9 && <label className="rg-category-search"><Icon name="search" size={18}/><input value={categorySearch} onChange={e=>setCategorySearch(e.target.value)} placeholder={t('Pretraži specijalizacije…','Search specialties…')} aria-label={t('Pretraži specijalizacije','Search specialties')}/></label>}
-        <div className="category-step-grid">{visibleChildren.map(node => <button key={node.id} className="category-step" onClick={() => filter('cat',node.id)}><span className="rg-step-icon-mini"><Icon name={node.icon} size={20}/></span><span>{categoryTitle(node,lang)}</span><Icon name="chevron" size={16}/></button>)}</div>
-        {!visibleChildren.length && children.length>0 && <p className="empty">{t('Nema kategorija za ovu pretragu.','No specialties match this search.')}</p>}
-        {!children.length && selected && <p className="rg-category-end"><Icon name="check" size={17}/>{t('Specijalizacija je izabrana — rezultati su ispod.','Specialty selected — see results below.')}</p>}
-      </>}
+    <div className="rgv-explore-bar"><div><p className="rg-section-eyebrow">01 / {t('OBLASTI I SPECIJALIZACIJE','DISCIPLINES & SPECIALTIES')}</p>
+      <h2>{selected?categoryTitle(current,lang):t('Pronađi ono što tražiš','Find what you need')}</h2><p>{t('Sve kategorije su dostupne jednim klikom.','All categories, one tap away.')}</p></div>
+      <button type="button" ref={categoryTriggerRef} className="rgv-open-categories" onClick={()=>setCategoryOpen(true)} aria-expanded={categoryOpen} aria-controls="rgv-category-panel"><Icon name="layers" size={20}/>{t('Istraži po oblastima','Explore disciplines')}<Icon name="chevron" size={19}/></button>
     </div>
+    {categoryOpen && <div className="rgv-category-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setCategoryOpen(false)}}>
+      <section id="rgv-category-panel" className="rgv-category-sheet" role="dialog" aria-modal="true" aria-labelledby="rgv-category-title">
+        <div className="rgv-sheet-grab" aria-hidden="true"/>
+        <div className="rgv-sheet-heading"><div><p className="rg-section-eyebrow">REVLORD / EXPLORE</p><h2 id="rgv-category-title">{t('Istraži po oblastima','Explore disciplines')}</h2><small>{t('Izaberi oblast i zatim specijalizaciju.','Choose a field, then a specialty.')}</small></div><button type="button" ref={categoryCloseRef} aria-label={t('Zatvori','Close')} className="rgv-sheet-close" onClick={()=>setCategoryOpen(false)}><Icon name="close" size={20}/></button></div>
+        <div className="rgv-category-body">
+          {selected && <div className="rgv-category-crumbs"><button type="button" onClick={()=>filter('cat','')}>{t('Sve oblasti','All fields')}</button>{ancestors.map(id=><React.Fragment key={id}><Icon name="chevron" size={13}/><button type="button" onClick={()=>filter('cat',id)}>{categoryTitle(nodes.find(n=>n.id===id),lang)}</button></React.Fragment>)}</div>}
+          <div className="rgv-category-controls">{selected&&<button type="button" className="rgv-back-category" onClick={()=>filter('cat',ancestors.at(-2)||'')}><Icon name="back" size={18}/>{t('Nazad','Back')}</button>}
+            <label className="rgv-category-search"><Icon name="search" size={18}/><input value={categorySearch} onChange={e=>setCategorySearch(e.target.value)} placeholder={t('Pretraži oblasti…','Search disciplines…')} aria-label={t('Pretraži oblasti','Search disciplines')}/></label></div>
+          {!hierarchy.data?<Wait error={hierarchy.error}/>:<div className="rgv-category-grid">{visibleChildren.map(node=><button type="button" key={node.id} className="rgv-category-choice" onClick={()=>{filter('cat',node.id);setCategorySearch('');if(!nodes.some(x=>x.parent_id===node.id&&x.active))setCategoryOpen(false);}}><span className="rgv-choice-icon"><Icon name={node.icon} size={22}/></span><span>{categoryTitle(node,lang)}</span><Icon name="chevron" size={17}/></button>)}</div>}
+          {hierarchy.data&&!visibleChildren.length&&<p className="rgv-category-empty">{selected?t('Izabrana je konkretna specijalizacija. Pogledaj rezultate.','Specialty selected. View matching results.'):t('Nema oblasti za ovaj pojam.','No matching fields.')}</p>}
+        </div>
+        <div className="rgv-category-footer"><button type="button" className="rgv-category-clear" onClick={()=>{filter('cat','');setCategorySearch('')}}>{t('Očisti izbor','Clear selection')}</button><button type="button" className="primary" onClick={()=>setCategoryOpen(false)}>{t('Prikaži rezultate','Show results')} <Icon name="arrow-up-right" size={17}/></button></div>
+      </section>
+    </div>}
     <div className="rg-search-filters"><Search value={q.get('q') || ''} search={v => filter('q',v)}/>
       <details className="filters-drawer rg-filter-drawer"><summary><Icon name="sliders" size={19}/>{t('Napredni filteri','Advanced filters')}{filterCount>0 && <span className="rg-filter-count">{filterCount}</span>}<Icon name="down" size={18}/></summary>
         <div className="rg-filter-content">
+          {budgetError && <p className="rgv-filter-warning" role="alert">{budgetError}</p>}
+          <p className="rgv-filter-tip">{t('Za budžet izaberi valutu. Prikazuju se samo cene u toj valuti.','Choose a currency for budget filters. Prices are compared within that currency.')}</p>
           <form className="rg-budget-row" onSubmit={applyBudget}><label>{t('Budžet od','Budget from')}<input type="number" min="0" value={draftMin} onChange={e=>setDraftMin(e.target.value)} placeholder="0" /></label><label>{t('Budžet do','Budget up to')}<input type="number" min="0" value={draftMax} onChange={e=>setDraftMax(e.target.value)} placeholder="∞" /></label><button type="submit" className="secondary">{t('Primeni','Apply')}</button></form>
           <div className="rg-filter-selects">
             <label>{t('Valuta','Currency')}<select value={q.get('currency') || ''} onChange={e=>filter('currency',e.target.value)}><option value="">{t('Sve valute','All currencies')}</option>{['EUR','USD','RSD','GBP'].map(c=><option key={c}>{c}</option>)}</select></label>
             <label>{t('Tip posla','Job type')}<select value={q.get('type') || ''} onChange={e=>filter('type',e.target.value)}><option value="">{t('Svi tipovi','All types')}</option>{[['fixed','Fiksni budžet','Fixed'],['hourly','Po satu','Hourly'],['oneoff','Jednokratno','One-off'],['ongoing','Dugoročno','Ongoing']].map(([v,sr,en])=><option key={v} value={v}>{t(sr,en)}</option>)}</select></label>
-            <label>{t('Sortiranje','Sort by')}<select value={q.get('sort') || 'newest'} onChange={e=>filter('sort',e.target.value)}><option value="newest">{t('Najnoviji','Newest first')}</option><option value="oldest">{t('Najstariji','Oldest first')}</option></select></label>
+            <label>{t('Sortiranje','Sort by')}<select value={q.get('sort') || 'rating'} onChange={e=>filter('sort',e.target.value)}><option value="rating">{t('Najbolje ocenjeni','Top rated')}</option><option value="newest">{t('Najnoviji','Newest first')}</option><option value="oldest">{t('Najstariji','Oldest first')}</option></select></label>
           </div>
           {kind==='service' && <label className="rg-filter-check"><input type="checkbox" checked={q.has('free')} onChange={e=>filter('free',e.target.checked?'1':'')}/>{t('Samo stručnjaci sa slobodnim terminima','Only specialists with available times')}</label>}
           <button className="rg-filter-reset" type="button" onClick={reset}>{t('Resetuj sve filtere','Reset all filters')} ×</button>
@@ -254,7 +277,8 @@ export function Browse({kind}: {kind: 'service' | 'project'}) {
     </div>
     <div className="rg-listings-results"><div className="rg-results-top"><span><Icon name="layers" size={18}/>{t('Pronađeno oglasa','Listings found')} <strong>{list.length}</strong></span>
       {filterCount>0 && <button className="rg-results-reset" onClick={reset}>{t('Očisti pretragu','Clear filters')} ×</button>}</div>
-      <div className="rg-filter-chips">{Array.from(q.entries()).filter(([k])=>k!=='sort').map(([k,v]) => <button key={k} onClick={()=>filter(k,'')} aria-label={t('Ukloni filter ','Remove filter ') + k}>{k==='cat'?categoryTitle(current,lang):k==='q'?v:k==='currency'?v:k==='type'?v:k==='min'?t('Od ','From ')+v:k==='max'?t('Do ','To ')+v:t('Slobodni termini','Available times')} <span>×</span></button>)}</div>
+      {(q.get('sort')||'rating')==='rating' && <p className="rgv-sort-note">{t('Rangiranje uzima u obzir ocene i broj recenzija; oglasi bez ocena su iza ocenjenih.','Ranking considers ratings and review counts; unrated listings follow rated ones.')}</p>}
+      <div className="rg-filter-chips">{Array.from(q.entries()).filter(([k])=>k!=='sort'&&k!=='explore').map(([k,v]) => <button key={k} onClick={()=>filter(k,'')} aria-label={t('Ukloni filter ','Remove filter ') + k}>{k==='cat'?categoryTitle(current,lang):k==='q'?v:k==='currency'?v:k==='type'?v:k==='min'?t('Od ','From ')+v:k==='max'?t('Do ','To ')+v:t('Slobodni termini','Available times')} <span>×</span></button>)}</div>
       {!data.data ? <Wait error={data.error}/> : list.length ? <Cards data={data.data} items={list}/> : <div className="rg-no-results"><Icon name="search" size={30}/><h3>{t('Nema oglasa za izabrane uslove','No listings found for these filters')}</h3><p>{t('Probaj drugu oblast ili resetuj filtere.','Try another category or clear your filters.')}</p><button className="secondary" onClick={reset}>{t('Resetuj filtere','Clear filters')}</button><Link to={kind==='service'?'/new/service':'/new/project'} className="text-link">{kind==='service'?t('Ponudi svoje veštine','Offer your skills'):t('Objavi posao','Post a job')}</Link></div>}
     </div>
   </section>;
@@ -330,9 +354,10 @@ function Engage({
       kind: 'service'
     }) : [];
     const works = own.length ? (await db.rows('works')).filter(w => own.some(o => o.id === w.listing_id)) : [];
+    const applications = user && l.kind==='project' && user.id!==l.owner_id ? await db.rows('applications',{listing_id:l.id,applicant:user.id}) : [];
     return {
       slots: slots.filter(x => Date.parse(x.starts_at) > Date.now()),
-      works
+      works,applications
     };
   }, l.id + (user?.id || '') + attempt);
   const [date, setDate] = useState(''),
@@ -414,7 +439,8 @@ function Engage({
           due: field(f, 'due') || null,
           work: field(f, 'work') || null
         });
-        setNote(t('Prijava je zabeležena. Status je u tvom panelu.', 'Your proposal is recorded. See its status in the dashboard.'));
+        setNote(t('Prijava je zabeležena. Sada možeš poslati poruku.','Your application is recorded. You can now send a message.'));
+        bump(x=>x+1);
       }}>
         <Field required maxLength={6000} name="proposal" type="textarea" label={t('Tvoja ponuda', 'Your proposal')} />
         <Field name="price" type="number" min="0" label={t('Cena (€)', 'Price (€)')} />
@@ -427,6 +453,7 @@ function Engage({
           </select>
         </label>
       </Form>}</> : <p>{t('Oglas je zatvoren.', 'Listing closed.')}</p>}
+    {l.kind==='project' && !!data.data?.applications.length && !isOwner && <ChatButton listing={l.id}/> }
     <Task className="secondary" run={async () => {
       if (navigator.share) {
         try {
@@ -495,6 +522,7 @@ export function Detail({
           <h2>Portfolio</h2>
           <Gallery works={ws} />
         </>}
+        <Reviews listingId={l.id} ownerId={l.owner_id}/>
       </div>
       <Engage l={l} p={p} />
     </div>
@@ -503,14 +531,14 @@ export function Detail({
 export function PublicProfile({ id }: {id:string}) {
   const {t,user} = useSite();
   const q=useData(async()=>{
-    const [profiles,listings,works,portfolios,images]=await Promise.all([
+    const [profiles,listings,works,portfolios,images,stats]=await Promise.all([
       db.rows('profiles',{id}),db.rows('listings',{owner_id:id,status:'published'}),
-      db.rows('works'),db.rows('portfolio_projects',{owner_id:id},'*','created_at'),db.rows('listing_images')
+      db.rows('works'),db.rows('portfolio_projects',{owner_id:id},'*','created_at'),db.rows('listing_images'),db.rows('listing_review_stats',{},'*','listing_id').catch(()=>[] as ReviewStat[])
     ]);
-    return {p:profiles[0],ls:listings,ws:works,portfolios,images};
+    return {p:profiles[0],ls:listings,ws:works,portfolios,images,stats};
   },'person'+id);
   if(!q.data) return <section className="page wrap"><Wait error={q.error}/></section>;
-  const {p,ls,ws,portfolios,images}=q.data;
+  const {p,ls,ws,portfolios,images,stats}=q.data;
   if(!p) return <Missing/>;
   const links=[['GitHub',p.github_url],['Behance',p.behance_url],[t('Veb-sajt','Website'),p.website_url]].filter(([,v])=>safeLink(v));
   return <section className="wrap page profile-page">
@@ -518,7 +546,7 @@ export function PublicProfile({ id }: {id:string}) {
       <div className="profile-cover-avatar"><Avatar p={p}/></div></div>
     <div className="profile-head">
       <div><h1>{p.name || t('Autor','Creator')}</h1>{p.username && <p className="profile-handle">@{p.username}</p>}
-        <span className={'availability '+(p.available?'yes':'')}>{p.available ? t('Dostupan za posao','Available for work') : t('Trenutno nedostupan','Currently unavailable')}</span></div>
+        <span className={'availability '+(p.available?'yes':'')}>{p.available ? t('Dostupan za posao','Available for work') : t('Trenutno nedostupan','Currently unavailable')}</span><a className="rgv-profile-reviews-link" href="#ocene"><Icon name="star" size={15}/>{t('Ocene i komentari','Reviews & ratings')}</a></div>
       {user?.id===id && <div className="actions"><Link className="primary" to="/account/edit">{t('Uredi profil','Edit profile')}</Link>
         <Link className="secondary" to="/account/portfolio">{t('Dodaj projekat','Add project')}</Link></div>}
     </div>
@@ -534,8 +562,9 @@ export function PublicProfile({ id }: {id:string}) {
         {safeLink(project.project_url) && <a className="text-link" href={safeLink(project.project_url)} target="_blank" rel="noopener noreferrer">{t('Pogledaj projekat','View project')} ↗</a>}</div>
       </article>)}</div> : <p className="empty">{t('Portfolio još nema projekata.','No portfolio projects yet.')}</p>}
     </section>
+    <Reviews profileId={id} ownerId={id}/>
     <section className="band"><div className="section-title"><h2>{t('Objavljeni oglasi i usluge','Published listings and services')}</h2>{user?.id===id && <Link className="text-link" to="/new/service">{t('Dodaj uslugu','Add service')}</Link>}</div>
-      {ls.length ? <div className="cards">{ls.map(l=><Card key={l.id} l={l} p={p} w={ws.find(w=>w.listing_id===l.id && w.image_path)} image={images.find(im=>im.listing_id===l.id && im.is_cover)||images.find(im=>im.listing_id===l.id)}/>)}</div> : <p className="empty">{t('Još nema objavljenih oglasa.','No published listings yet.')}</p>}
+      {ls.length ? <div className="cards">{ls.map(l=><Card key={l.id} l={l} p={p} stat={stats.find(st=>st.listing_id===l.id)}/>)}</div> : <p className="empty">{t('Još nema objavljenih oglasa.','No published listings yet.')}</p>}
     </section>
   </section>;
 }
