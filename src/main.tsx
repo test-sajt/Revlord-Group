@@ -167,3 +167,5 @@ export function App({
 import './workspace.css';
 import './revamp.css';
 import './revlord-20261120.css';
+
+import './live-chat.css';

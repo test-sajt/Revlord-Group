@@ -23,6 +23,9 @@ export function markRead(thread:string):Promise<void>;
 export function mediaUrl(bucket:string,path:string):Promise<string>;
 
 export function chatHistory(thread:string):Promise<Message[]>;
+export function liveChatHistory():Promise<import('./types').LiveChatMessage[]>;
+export function sendLiveChat(sender:string,body:string):Promise<import('./types').LiveChatMessage>;
+export function listenLiveChat(refresh:()=>void):()=>void;
 export function deleteChatForMe(thread:string):Promise<void>;
 
 export const pushConfigured:boolean;

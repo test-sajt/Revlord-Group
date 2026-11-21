@@ -155,3 +155,11 @@ export type Tables = {
     user_id: string;
   };
 };
+
+export type LiveChatMessage = {
+  id: string;
+  sender: string;
+  sender_name: string;
+  body: string;
+  created_at: string;
+};

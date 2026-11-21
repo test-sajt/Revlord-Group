@@ -159,6 +159,15 @@ export async function chatHistory(thread) {
     throw error;
   }
 }
+// Separate shared room: existing private thread/message APIs are untouched.
+export function liveChatHistory() { return rpc('live_chat_history', {}); }
+export function sendLiveChat(sender, body) { return insert('live_chat_messages', { sender, body }); }
+export function listenLiveChat(refresh) {
+  const channel = api().channel('live-chat-' + crypto.randomUUID())
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_chat_messages' }, refresh)
+    .subscribe();
+  return () => { api().removeChannel(channel); };
+}
 export function markRead(thread) { return rpc('mark_thread_read', {thread}); }
 export function listenInbox(refresh) {
   const channel = api().channel('inbox-' + crypto.randomUUID())

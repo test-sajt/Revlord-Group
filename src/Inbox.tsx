@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import * as db from './db';
 import type { InboxItem } from './types';
 import { Icon } from './icons';
+import { LiveChat } from './LiveChat';
 import { explain, useSite, when } from './ui';
 
 // Messages are shared; "delete chat" only removes the conversation from the current person's view.
@@ -12,6 +13,8 @@ export function Inbox() {
   const { user, lang, t, openChat } = ctx;
   const [items, setItems] = useState<InboxItem[]>([]);
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'messages'|'live'>('messages');
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 680px)').matches);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState('');
@@ -22,6 +25,19 @@ export function Inbox() {
   const lastMessages=useRef<Map<string,string>>(new Map());
   const inboxInitialized=useRef(false);
   const container = useRef<HTMLDivElement>(null);
+  const dialog = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 680px)');
+    const onChange = () => setMobile(query.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
+  useEffect(() => {
+    if (!open || !mobile) return;
+    const old = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = old; };
+  }, [open, mobile]);
   useEffect(() => { setOpen(false); setConfirmId(''); }, [ctx.url.pathname, user?.id]);
   useEffect(()=>{
     setToast(null);setNotifyStatus('off');inboxInitialized.current=false;lastMessages.current.clear();
@@ -66,7 +82,7 @@ export function Inbox() {
   }, [user?.id]);
   useEffect(() => {
     if (!open) return;
-    const close = (e: MouseEvent) => {if (!container.current?.contains(e.target as Node)) setOpen(false);};
+    const close = (e: PointerEvent) => {if (!container.current?.contains(e.target as Node) && !dialog.current?.contains(e.target as Node)) setOpen(false);};
     const escape = (e: KeyboardEvent) => {if(e.key==='Escape'){setOpen(false);setConfirmId('');}};
     document.addEventListener('pointerdown',close);document.addEventListener('keydown',escape);
     return ()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',escape);};
@@ -93,13 +109,13 @@ export function Inbox() {
     try{const mode=await db.enableNotifications(user!.id);setNotifyStatus(mode==='push'?'on':'local');}
     catch(e){setNotifyStatus('error');setNotifyError(explain(e,t));}
   };
-  return <div className="inbox-holder" ref={container}>
-    <button className="inbox-trigger" type="button" aria-label={t('Poruke','Messages') + (unread ? ` (${unread} ${t('nepročitanih','unread')})`:'')} aria-expanded={open} aria-haspopup="dialog" onClick={()=>setOpen(v=>!v)}>
-      <Icon name="mail" size={23}/>
-      {unread>0 && <span className="inbox-badge" aria-hidden="true">{unread>99?'99+':unread}</span>}
-    </button>
-    {open && <section className="inbox-popover rg-inbox-popover" role="dialog" aria-label={t('Moje poruke','My messages')}>
-      <div className="inbox-top"><div><small className="rg-inbox-caption">REVLORD / INBOX</small><strong>{t('Poruke','Messages')}</strong></div><button type="button" aria-label={t('Zatvori','Close')} onClick={()=>setOpen(false)}><Icon name="close" size={19}/></button></div>
+  const popover = open && <section ref={dialog} className={'inbox-popover rg-inbox-popover' + (activeTab==='live' ? ' rg-live-mode':'')} role="dialog" aria-modal={mobile} aria-label={t('Poruke i live chat','Messages and live chat')}>
+      <div className="inbox-top"><div><small className="rg-inbox-caption">REVLORD / INBOX</small><strong>{activeTab==='messages'?t('Poruke','Messages'):'Live chat'}</strong></div><button type="button" aria-label={t('Zatvori','Close')} onClick={()=>setOpen(false)}><Icon name="close" size={19}/></button></div>
+      <div className="rg-inbox-tabs" role="tablist" aria-label={t('Izaberi razgovore','Select conversations')}>
+        <button type="button" role="tab" id="rg-inbox-tab-messages" aria-controls="rg-inbox-panel-messages" aria-selected={activeTab==='messages'} className={activeTab==='messages'?'is-selected':''} onClick={()=>setActiveTab('messages')}><Icon name="mail" size={17}/>{t('Poruke','Messages')}{unread>0 && <span className="rg-tab-unread">{unread>99?'99+':unread}</span>}</button>
+        <button type="button" role="tab" id="rg-inbox-tab-live" aria-controls="rg-inbox-panel-live" aria-selected={activeTab==='live'} className={activeTab==='live'?'is-selected':''} onClick={()=>setActiveTab('live')}><Icon name="chat" size={17}/>Live chat</button>
+      </div>
+      {activeTab==='live'?<LiveChat />:<div className="rg-inbox-messages-pane" role="tabpanel" id="rg-inbox-panel-messages" aria-labelledby="rg-inbox-tab-messages">
       {error && <p className="notice" role="alert">{error}</p>}
       {loading && !error && <p className="inbox-empty">{t('Učitavanje poruka…','Loading messages…')}</p>}
       {!loading && !error && !items.length && <p className="inbox-empty">{t('Još nema razgovora. Pregledaj oglase i započni razgovor.','No conversations yet. Browse listings to get started.')}</p>}
@@ -118,7 +134,14 @@ export function Inbox() {
           <div><button type="button" disabled={!!deleting} onClick={()=>void hideChat(item.thread_id)}>{deleting===item.thread_id?t('Uklanjam…','Removing…'):t('Da, izbriši','Yes, remove')}</button><button type="button" onClick={()=>setConfirmId('')}>{t('Otkaži','Cancel')}</button></div>
         </div>}
       </div>)}</div>
-    </section>}
+      </div>}
+    </section>;
+  return <div className="inbox-holder" ref={container}>
+    <button className="inbox-trigger" type="button" aria-label={t('Poruke','Messages') + (unread ? ` (${unread} ${t('nepročitanih','unread')})`:'')} aria-expanded={open} aria-haspopup="dialog" onClick={()=>setOpen(v=>!v)}>
+      <Icon name="mail" size={23}/>
+      {unread>0 && <span className="inbox-badge" aria-hidden="true">{unread>99?'99+':unread}</span>}
+    </button>
+    {open && (mobile ? createPortal(popover, document.body) : popover)}
     {toast && createPortal(<aside className="rgv-message-toast" role="status" aria-live="polite"><img src="/icons/revlord-192.png" width="45" height="45" alt=""/><div className="rgv-toast-body"><strong>Nova poruka Revlord-Group</strong><p>{t('Nova poruka od','New message from')} <b>{toast.sender}</b></p><button type="button" onClick={()=>{openChat(toast.thread);setToast(null);}}>{t('Otvori razgovor','Open conversation')} <Icon name="chevron" size={14}/></button></div><button type="button" className="rgv-toast-close" onClick={()=>setToast(null)} aria-label={t('Zatvori obaveštenje','Dismiss notification')}><Icon name="close" size={17}/></button></aside>,document.body)}
   </div>;
 }

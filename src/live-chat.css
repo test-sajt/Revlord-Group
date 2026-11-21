@@ -1,0 +1,42 @@
+/* Only the envelope pop-up and its new tabs/live room are styled here. */
+.rg-inbox-popover .rg-inbox-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 8px 3px}
+.rg-inbox-tabs>button{display:flex;justify-content:center;align-items:center;gap:7px;min-width:0;padding:10px 7px;min-height:42px;border:1px solid #344e3c;border-radius:10px;background:#132219;color:#b7d0c0;font-weight:750;font-size:.83rem}
+.rg-inbox-tabs>button:hover{border-color:#55c992;background:#1a3b28}
+.rg-inbox-tabs>button.is-selected{background:#1d4830;color:#7affbe;border-color:#42d897}
+.rg-tab-unread{padding:1px 6px;background:#d72b47;color:#fff;border-radius:99px;font-size:.69rem}
+.rg-inbox-popover.rg-live-mode{height:min(72dvh,580px);overflow:hidden;display:flex;flex-direction:column}
+.rg-inbox-popover .rg-inbox-messages-pane{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.rg-live-chat{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:0 3px 3px}
+.rg-live-description{display:flex;align-items:center;gap:8px;padding:12px 8px 10px;font-size:.72rem;color:#aac8b7;flex-shrink:0}
+.rg-live-dot{width:8px;height:8px;border-radius:50%;background:#36e99c;box-shadow:0 0 10px #31ef9e;flex-shrink:0}
+.rg-live-messages{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 7px 12px;scrollbar-color:#37694a transparent}
+.rg-live-empty{padding:24px 10px;text-align:center;color:#9fb8a7;font-size:.86rem;line-height:1.5}
+.rg-live-message{border:1px solid #31513d;border-radius:12px 12px 12px 4px;background:#172d21;padding:10px 12px;max-width:92%;min-width:110px;align-self:flex-start;overflow-wrap:anywhere}
+.rg-live-mine{align-self:flex-end;border-radius:12px 12px 4px 12px;background:#21543a;border-color:#378961}
+.rg-live-author{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;margin-bottom:5px}
+.rg-live-author strong{font-size:.78rem;color:#88ffbe}
+.rg-live-author time{font-size:.65rem;color:#adc6b6}
+.rg-live-message p{margin:0;white-space:pre-wrap;font-size:.86rem;line-height:1.46;color:#edfdf3}
+.rg-live-composer{flex-shrink:0;border-top:1px solid #365642;padding:10px 5px 2px;background:#0f2017}
+.rg-live-expiry{font-size:.69rem;color:#a9bdac;display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.rg-live-expiry svg{color:#50e89f;flex-shrink:0}
+.rg-live-composer form{display:flex;align-items:stretch;gap:8px;margin:0}
+.rg-live-composer textarea{min-width:0;flex:1;padding:10px 11px;resize:none;border:1px solid #3a6047;border-radius:10px;background:#12231a;color:#f5fff9;font-size:.88rem;line-height:1.45;max-height:120px}
+.rg-live-composer textarea:focus-visible{outline:2px solid #58f0ab;outline-offset:1px}
+.rg-live-composer button{display:flex;justify-content:center;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:#226744;border:1px solid #37dd91;color:#e2ffef;font-size:.78rem;font-weight:800}
+.rg-live-composer button:disabled{opacity:.48;cursor:not-allowed}
+.rg-live-error{margin:0 0 8px;color:#ffb7b7;font-size:.78rem;overflow-wrap:anywhere}
+.rg-live-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:680px){
+  /* Rendered through document.body so the sticky/blurred header cannot clip the full-screen dialog. */
+  .rg-inbox-popover{position:fixed!important;z-index:10000!important;inset:0!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;max-width:none!important;height:100dvh!important;max-height:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;padding:calc(14px + env(safe-area-inset-top,0px)) 13px calc(10px + env(safe-area-inset-bottom,0px))!important;background:#0b1d13!important}
+  .rg-inbox-popover.rg-live-mode{height:100dvh!important}
+  .rg-inbox-popover .inbox-top{flex-shrink:0}
+  .rg-inbox-popover .rg-inbox-tabs{flex-shrink:0;margin:13px 3px 8px}
+  .rg-inbox-popover .rg-inbox-messages-pane{flex:1;overflow-y:auto;padding-bottom:10px}
+  .rg-inbox-popover .rg-live-chat{flex:1}
+  .rg-live-messages{padding-top:13px}
+  .rg-live-composer textarea{font-size:16px}
+  .rg-live-composer button{min-width:42px}
+}
+@media(max-width:360px){.rg-live-composer button span{display:none}.rg-live-composer button{padding:9px}}
